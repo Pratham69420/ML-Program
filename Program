@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traffic Sign Recognition Trainer</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+  <style>
+    body {
+      background-color: white;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      text-align: center;
+      margin: 20px;
+      color: #222;
+    }
+    h1 { margin-bottom: 10px; }
+    button, input, select {
+      padding: 10px;
+      margin: 8px;
+      border-radius: 8px;
+      border: none;
+      background: #0078ff;
+      color: white;
+      cursor: pointer;
+      font-size: 15px;
+    }
+    button:hover { background: #005ec7; }
+    #video { display: none; width: 280px; border-radius: 10px; margin-top: 10px; }
+    #preview { max-width: 200px; margin: 10px; border-radius: 10px; }
+    .class-box {
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin: 8px auto;
+      width: 80%;
+      padding: 10px;
+      background: #f8f8f8;
+    }
+  </style>
+</head>
+<body>
+  <h1>🚦 Traffic Sign Recognition Trainer</h1>
+  <p>Train and test your own traffic sign recognition model — right in the browser!</p>
+
+  <select id="cameraSelect"></select>
+  <button id="startCamera">Start Camera</button>
+  <video id="video" autoplay playsinline></video>
+
+  <div>
+    <button id="addClass">➕ Add Class</button>
+    <button id="trainModel">🧠 Train Model</button>
+  </div>
+
+  <div id="classContainer"></div>
+
+  <input type="file" id="imageUpload" multiple accept="image/*">
+  <p id="status"></p>
+
+  <img id="preview" />
+  <p id="prediction"></p>
+
+  <script>
+    let model, webcamStream, classData = {}, labels = [], selectedDeviceId = null;
+    let trainedModel;
+
+    async function listCameras() {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoSelect = document.getElementById('cameraSelect');
+      videoSelect.innerHTML = '';
+      devices.forEach(device => {
+        if (device.kind === 'videoinput') {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.text = device.label || `Camera ${videoSelect.length + 1}`;
+          videoSelect.appendChild(option);
+        }
+      });
+      if (devices.length === 0) {
+        alert("No camera found!");
+      }
+    }
+
+    async function setupCamera() {
+      selectedDeviceId = document.getElementById('cameraSelect').value;
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+      }
+      const constraints = { video: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined } };
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const video = document.getElementById('video');
+      video.srcObject = stream;
+      webcamStream = stream;
+      video.style.display = "block";
+    }
+
+    document.getElementById('startCamera').addEventListener('click', setupCamera);
+    window.addEventListener('load', listCameras);
+
+    document.getElementById('addClass').addEventListener('click', () => {
+      const label = prompt("Enter class name:");
+      if (!label) return;
+      labels.push(label);
+      classData[label] = [];
+      const div = document.createElement('div');
+      div.classList.add('class-box');
+      div.innerHTML = `<h3>${label}</h3><button onclick="captureSample('${label}')">📸 Capture Sample</button>`;
+      document.getElementById('classContainer').appendChild(div);
+    });
+
+    async function captureSample(label) {
+      const video = document.getElementById('video');
+      const canvas = document.createElement('canvas');
+      canvas.width = 224;
+      canvas.height = 224;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, 224, 224);
+      const imgData = tf.browser.fromPixels(canvas).toFloat().div(255).expandDims(0);
+      classData[label].push(imgData);
+      alert(`Captured a sample for ${label}! Total: ${classData[label].length}`);
+    }
+
+    document.getElementById('trainModel').addEventListener('click', async () => {
+      document.getElementById('status').innerText = "Training model... Please wait ⏳";
+
+      const xs = [];
+      const ys = [];
+      let labelIndex = 0;
+
+      for (const label in classData) {
+        const tensors = classData[label];
+        for (const t of tensors) {
+          xs.push(t);
+          ys.push(tf.tensor1d([labelIndex]));
+        }
+        labelIndex++;
+      }
+
+      const xData = tf.concat(xs);
+      const yData = tf.concat(ys);
+
+      model = tf.sequential();
+      model.add(tf.layers.flatten({ inputShape: [224, 224, 3] }));
+      model.add(tf.layers.dense({ units: 64, activation: 'relu' }));
+      model.add(tf.layers.dense({ units: labels.length, activation: 'softmax' }));
+
+      model.compile({ optimizer: 'adam', loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
+      await model.fit(xData, yData, { epochs: 10 });
+      trainedModel = model;
+
+      document.getElementById('status').innerText = "✅ Model trained! You can now upload or capture to test.";
+    });
+
+    document.getElementById('imageUpload').addEventListener('change', async (e) => {
+      if (!trainedModel) {
+        alert("Please train your model first!");
+        return;
+      }
+
+      const file = e.target.files[0];
+      const img = document.getElementById('preview');
+      img.src = URL.createObjectURL(file);
+      img.onload = async () => {
+        const tensor = tf.browser.fromPixels(img).resizeNearestNeighbor([224, 224]).toFloat().div(255).expandDims(0);
+        const prediction = await trainedModel.predict(tensor).data();
+        const maxIdx = prediction.indexOf(Math.max(...prediction));
+        const label = labels[maxIdx];
+        const acc = (prediction[maxIdx] * 100).toFixed(2);
+        document.getElementById('prediction').innerText = `Prediction: ${label} — Accuracy: ${acc}%`;
+      };
+    });
+  </script>
+</body>
+</html>
