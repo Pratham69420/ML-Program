@@ -1,190 +1,509 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Mini Teachable Machine Pro</title>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
-  <style>
-    body {
-      font-family: 'Poppins', sans-serif;
-      background: #ffffff;
-      text-align: center;
-      padding: 20px;
-    }
-    h1 { color: #333; }
-    video {
-      border: 3px solid #ddd;
-      border-radius: 12px;
-      width: 320px;
-      height: 240px;
-    }
-    button, select, input {
-      margin: 6px;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 10px;
-      background-color: #0078ff;
-      color: white;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    button:hover { background-color: #005fcc; }
-    .class-container {
-      border: 2px solid #ddd;
-      border-radius: 12px;
-      padding: 10px;
-      margin: 8px auto;
-      width: 330px;
-      background: #f9f9f9;
-    }
-    #prediction {
-      margin-top: 15px;
-      font-size: 20px;
-      font-weight: bold;
-      color: #222;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Mini Teachable Machine — Final</title>
+
+<!-- TensorFlow.js and MobileNet -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.16.0/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
+<style>
+  :root{
+    --accent:#1f8ef1;
+    --muted:#666;
+    --card:#fff;
+    --surface:#f6f8fb;
+  }
+  body{ font-family: Inter, Arial, sans-serif; background:#f2f5fb; margin:0; padding:20px; color:#123; }
+  .app { max-width:1100px; margin:0 auto; }
+  header{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  h1{ font-size:20px; margin:0; }
+  .controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  select,input[type="file"],button{ padding:8px 10px; border-radius:8px; border:1px solid rgba(0,0,0,0.08); background:white; cursor:pointer; }
+  button{ background:var(--accent); color:white; border:none; }
+  button.ghost{ background:transparent; color:var(--accent); border:1px solid var(--accent); }
+
+  main { display:grid; grid-template-columns: 420px 1fr; gap:18px; align-items:start; }
+
+  /* Left: camera + training */
+  .card { background:var(--card); border-radius:12px; padding:14px; box-shadow: 0 6px 20px rgba(16,24,40,0.06); }
+  video { width:100%; border-radius:10px; background:#000; height:280px; object-fit:cover; }
+  .small { font-size:13px; color:var(--muted); margin-top:8px; }
+
+  .class-list { margin-top:12px; display:flex; flex-direction:column; gap:10px; max-height:400px; overflow:auto; }
+  .class-row { display:flex; align-items:center; gap:8px; padding:8px; border-radius:10px; background:var(--surface); }
+  .class-name { flex:1; font-weight:600; }
+  .count { font-size:13px; color:var(--muted); min-width:70px; text-align:right; }
+
+  /* Right: training controls + results */
+  .right-col { display:flex; flex-direction:column; gap:12px; }
+  .grid { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+  .big { font-size:18px; font-weight:700; color:#0b2b4a; }
+  .prediction-box { display:flex; gap:12px; align-items:center; justify-content:space-between; padding:12px; border-radius:10px; background:linear-gradient(180deg,#ffffff,#f7fbff); box-shadow:0 4px 12px rgba(16,24,40,0.04); }
+  .top-label { font-size:24px; font-weight:800; letter-spacing:0.6px; color:#0d2d55; }
+
+  /* bars */
+  .bars { margin-top:6px; display:flex; flex-direction:column; gap:8px; }
+  .bar-row { display:flex; align-items:center; gap:8px; }
+  .bar-name { width:160px; font-weight:600; font-size:14px; color:#123; }
+  .bar-wrap { flex:1; background:#e9eef8; height:18px; border-radius:9px; overflow:hidden; position:relative; }
+  .bar-fill { height:100%; background:var(--accent); width:0%; transition: width 250ms ease; }
+  .bar-val { width:56px; text-align:right; font-weight:700; color:#123; }
+
+  footer { margin-top:20px; font-size:13px; color:var(--muted); text-align:center; }
+  label.small-btn{ display:inline-flex; gap:6px; align-items:center; cursor:pointer; padding:8px 10px; border-radius:8px; background:white; border:1px dashed #cde3ff; color:var(--accent); }
+</style>
 </head>
 <body>
-  <h1>Mini Teachable Machine 🚦</h1>
+  <div class="app">
+    <header>
+      <h1>Mini Teachable Machine — Final (MobileNet + Transfer Learning)</h1>
+      <div class="controls">
+        <select id="cameraSelect" title="Choose camera"></select>
+        <button id="startBtn">Start Camera</button>
+        <button id="saveBtn" class="ghost">Save Model</button>
+        <label class="small-btn"><input id="loadFile" type="file" accept=".json,.weights.bin" style="display:none">Load Model</label>
+      </div>
+    </header>
 
-  <div>
-    <label>Device:</label>
-    <select id="deviceSelect">
-      <option value="computer">Computer</option>
-      <option value="phone">Phone</option>
-    </select>
-    <button onclick="startCamera()">Start Camera</button>
+    <main>
+      <!-- Left column: Camera + class management -->
+      <section class="card">
+        <video id="webcam" autoplay playsinline muted></video>
+        <div class="small">Tip: Click “Start Camera”, add classes, then capture many photos quickly for each class.</div>
+
+        <div style="display:flex;gap:8px;margin-top:12px;">
+          <input id="classInput" placeholder="New class name" />
+          <button id="addClassBtn">Add Class</button>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <label class="small-btn">
+            Upload images
+            <input id="uploadFiles" type="file" accept="image/*" multiple style="display:none">
+          </label>
+          <button id="clearData" class="ghost">Clear Data</button>
+        </div>
+
+        <div class="class-list" id="classList"></div>
+      </section>
+
+      <!-- Right column: Train + Live test + results -->
+      <section class="right-col">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div class="big">Training</div>
+              <div class="small">Uses MobileNet embeddings + small classifier</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button id="trainBtn">Train</button>
+              <button id="stopTrain" class="ghost">Stop</button>
+            </div>
+          </div>
+
+          <div id="trainStatus" style="margin-top:10px;font-weight:600;color:#0b63c6"></div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div class="big">Live Test</div>
+              <div class="small">Start live webcam classification</div>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button id="startLiveBtn">Start Live</button>
+              <button id="stopLiveBtn" class="ghost">Stop Live</button>
+            </div>
+          </div>
+
+          <div class="prediction-box" style="margin-top:12px;">
+            <div>
+              <div class="top-label" id="topLabel">Prediction: —</div>
+              <div class="small" id="topConfidence">Confidence: —</div>
+            </div>
+            <div style="width:180px;text-align:right;">
+              <div id="topEmoji" style="font-size:28px;">🤖</div>
+            </div>
+          </div>
+
+          <div class="bars" id="barsContainer" style="margin-top:12px;"></div>
+        </div>
+
+        <div class="card">
+          <div class="big">Notes & Quick Checks</div>
+          <div class="small" style="margin-top:8px;">
+            - Capture many images with different angles, distances and lighting for each class.<br>
+            - If model is unsure, add more samples for that class.
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>Made for Grade 7 Machine Learning Science Fair — built with TensorFlow.js</footer>
   </div>
 
-  <div>
-    <label>Camera:</label>
-    <select id="cameraSelect"></select>
-  </div>
+<script>
+(async ()=>{
 
-  <video id="webcam" autoplay playsinline></video>
+// ---------------------- Globals ----------------------
+const webcamEl = document.getElementById('webcam');
+const cameraSelect = document.getElementById('cameraSelect');
+const addClassBtn = document.getElementById('addClassBtn');
+const classInput = document.getElementById('classInput');
+const classListEl = document.getElementById('classList');
+const uploadFiles = document.getElementById('uploadFiles');
+const startBtn = document.getElementById('startBtn');
+const trainBtn = document.getElementById('trainBtn');
+const trainStatus = document.getElementById('trainStatus');
+const startLiveBtn = document.getElementById('startLiveBtn');
+const stopLiveBtn = document.getElementById('stopLiveBtn');
+const topLabel = document.getElementById('topLabel');
+const topConfidence = document.getElementById('topConfidence');
+const barsContainer = document.getElementById('barsContainer');
+const saveBtn = document.getElementById('saveBtn');
+const loadFile = document.getElementById('loadFile');
+const clearData = document.getElementById('clearData');
+const stopTrain = document.getElementById('stopTrain');
 
-  <h2>Create Classes</h2>
-  <input type="text" id="classNameInput" placeholder="Enter class name" />
-  <button onclick="addClass()">Add Class</button>
+let mobileNet;            // feature extractor
+let classifierModel = null; // small classifier we train
+let classNames = [];      // array of class names
+let samplesByClass = {};  // { className: [embeddingTensor, ...] }
+let isTraining = false;
+let liveLoop = false;
+let webcamStream = null;
+let embeddingShape = null; // shape of mobilenet embedding (1,x)
 
-  <div id="classList"></div>
+// ---------------------- Utilities ----------------------
+function el(tag, attrs={}, ...children){
+  const d = document.createElement(tag);
+  for(const k in attrs) d.setAttribute(k, attrs[k]);
+  for(const c of children) if (typeof c === 'string') d.appendChild(document.createTextNode(c)); else d.appendChild(c);
+  return d;
+}
 
-  <button onclick="trainModel()">Train Model</button>
+// format percent
+function pct(n){ return (n*100).toFixed(1) + '%'; }
 
-  <h2>Live Testing</h2>
-  <button onclick="toggleLiveTest()">Start Live Test</button>
-  <p id="prediction">Prediction: None</p>
+// ---------------------- Camera setup ----------------------
+async function listCameras(){
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  cameraSelect.innerHTML = '';
+  const cams = devices.filter(d=>d.kind==='videoinput');
+  cams.forEach((c,i)=>{
+    const opt = document.createElement('option');
+    opt.value = c.deviceId;
+    opt.text = c.label || `Camera ${i+1}`;
+    cameraSelect.appendChild(opt);
+  });
+  if(cams.length===0){
+    cameraSelect.innerHTML = '<option>No camera</option>';
+  }
+}
 
-  <script>
-    let video = document.getElementById("webcam");
-    let classList = document.getElementById("classList");
-    let cameraSelect = document.getElementById("cameraSelect");
-    let classes = [];
-    let trainingData = {};
-    let model;
-    let stream;
-    let liveTest = false;
+async function startCamera(){
+  if (webcamStream) { webcamStream.getTracks().forEach(t=>t.stop()); webcamStream=null; }
+  const deviceId = cameraSelect.value || undefined;
+  const constraints = { video: deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'environment' } , audio:false };
+  webcamStream = await navigator.mediaDevices.getUserMedia(constraints);
+  webcamEl.srcObject = webcamStream;
+  await new Promise(r=>webcamEl.onloadedmetadata=r);
+}
 
-    async function startCamera() {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = devices.filter(d => d.kind === "videoinput");
-      cameraSelect.innerHTML = "";
-      videoDevices.forEach((d, i) => {
-        const option = document.createElement("option");
-        option.value = d.deviceId;
-        option.text = d.label || `Camera ${i + 1}`;
-        cameraSelect.appendChild(option);
-      });
-      setCamera(videoDevices[0].deviceId);
-    }
+// list cameras on load
+await listCameras();
+startBtn.onclick = async ()=>{ await listCameras(); await startCamera(); };
 
-    async function setCamera(deviceId) {
-      if (stream) stream.getTracks().forEach(t => t.stop());
-      stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: deviceId } } });
-      video.srcObject = stream;
-    }
+// ---------------------- Class UI and data ----------------------
+function renderClasses(){
+  classListEl.innerHTML = '';
+  classNames.forEach(name=>{
+    const count = (samplesByClass[name]||[]).length;
+    const row = el('div',{class:'class-row'});
+    row.className = 'class-row';
+    const nameEl = el('div',{class:'class-name'}, name);
+    const btnCapture = el('button',{}, '📸');
+    btnCapture.onclick = ()=> captureSample(name);
+    const btnUpload = el('button',{}, '⬆️');
+    btnUpload.onclick = ()=> { currentUploadTarget = name; uploadFiles.click(); };
+    const countEl = el('div',{class:'count'}, `${count} imgs`);
+    const removeBtn = el('button',{}, '✖');
+    removeBtn.onclick = ()=> { deleteClass(name); };
+    row.appendChild(nameEl); row.appendChild(btnCapture); row.appendChild(btnUpload); row.appendChild(countEl); row.appendChild(removeBtn);
+    classListEl.appendChild(row);
+  });
+}
 
-    cameraSelect.addEventListener("change", () => {
-      setCamera(cameraSelect.value);
+let currentUploadTarget = null;
+
+addClassBtn.onclick = ()=>{
+  const name = classInput.value.trim();
+  if(!name) return alert('Enter a class name');
+  if(classNames.includes(name)) return alert('Class already exists');
+  classNames.push(name);
+  samplesByClass[name] = [];
+  classInput.value = '';
+  renderClasses();
+  renderBars(); // update UI
+};
+
+// upload multiple images to selected class
+uploadFiles.addEventListener('change', async (ev)=>{
+  const files = Array.from(ev.target.files || []);
+  if (!currentUploadTarget) { alert('Choose a class first (click Upload beside a class)'); uploadFiles.value=''; return; }
+  for(const f of files){
+    const img = await fileToImage(f);
+    await addImageToClass(currentUploadTarget, img);
+  }
+  uploadFiles.value='';
+  renderClasses();
+});
+
+// helper to convert file to image element
+function fileToImage(file){
+  return new Promise((res,rej)=>{
+    const img = new Image();
+    img.onload = ()=> res(img);
+    img.onerror = rej;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// capture sample instantly from video and add to class
+async function captureSample(className){
+  if(!webcamStream) return alert('Start camera first');
+  // draw to canvas
+  const canvas = document.createElement('canvas');
+  canvas.width = 224; canvas.height = 224;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(webcamEl, 0, 0, canvas.width, canvas.height);
+  const img = new Image();
+  img.src = canvas.toDataURL('image/png');
+  img.onload = async ()=>{
+    await addImageToClass(className, img);
+    renderClasses();
+  };
+}
+
+// add arbitrary image element to a class (computes embedding)
+async function addImageToClass(className, imageEl){
+  if(!mobileNet) await loadMobileNet(); // ensure loaded
+  // get embedding from mobilenet
+  const tensor = tf.browser.fromPixels(imageEl).toFloat().div(255).resizeNearestNeighbor([224,224]);
+  const emb = mobileNet.infer(tensor, 'conv_preds'); // embedding tensor
+  // store embedding (detach to avoid memory leak)
+  samplesByClass[className].push(emb.clone());
+  // remember embedding shape
+  if(!embeddingShape) embeddingShape = emb.shape.slice(1); // e.g. [1024]
+  tensor.dispose();
+  // update UI counts
+}
+
+// delete class and its samples
+function deleteClass(name){
+  if(!confirm(`Delete class "${name}" and its ${samplesByClass[name]?.length||0} images?`)) return;
+  // dispose tensors
+  (samplesByClass[name]||[]).forEach(t=>t.dispose());
+  delete samplesByClass[name];
+  classNames = classNames.filter(c=>c!==name);
+  renderClasses();
+  renderBars();
+}
+
+// clear all training data
+clearData.onclick = ()=>{
+  if(!confirm('Clear all classes and training images?')) return;
+  for(const cls in samplesByClass) samplesByClass[cls].forEach(t=>t.dispose());
+  samplesByClass = {};
+  classNames = [];
+  embeddingShape = null;
+  classifierModel = null;
+  renderClasses(); renderBars();
+};
+
+// ---------------------- Load MobileNet (feature extractor) ----------------------
+async function loadMobileNet(){
+  trainStatus.innerText = 'Loading base model (MobileNet)...';
+  mobileNet = await mobilenet.load({version:2, alpha:0.5});
+  trainStatus.innerText = 'MobileNet ready';
+}
+await loadMobileNet();
+
+// ---------------------- Training ----------------------
+let stopRequested = false;
+stopTrain.onclick = ()=> { stopRequested = true; };
+
+trainBtn.onclick = async ()=>{
+  // prepare dataset
+  if(classNames.length < 2) return alert('Add at least 2 classes to train');
+  // check samples
+  for(const cls of classNames){
+    if(!samplesByClass[cls] || samplesByClass[cls].length===0) return alert(`Class "${cls}" has no samples`);
+  }
+
+  trainStatus.innerText = 'Preparing data...';
+  // collect embeddings and labels
+  const xs = [];
+  const ys = [];
+  classNames.forEach((cls, idx)=>{
+    (samplesByClass[cls] || []).forEach(emb => {
+      xs.push(emb); // emb is a tensor [1,x]
+      ys.push(idx);
     });
+  });
 
-    function addClass() {
-      const name = document.getElementById("classNameInput").value.trim();
-      if (!name) return alert("Enter a class name!");
-      if (classes.includes(name)) return alert("Class already exists!");
-      classes.push(name);
-      trainingData[name] = [];
-      const div = document.createElement("div");
-      div.className = "class-container";
-      div.innerHTML = `
-        <h3>${name}</h3>
-        <button onclick="captureImage('${name}')">📸 Capture</button>
-        <span id="${name}-count">Images: 0</span>
-      `;
-      classList.appendChild(div);
-      document.getElementById("classNameInput").value = "";
-    }
+  // concat xs
+  const xTensor = tf.concat(xs, 0); // shape [N,embeddingSize]
+  const yTensor = tf.oneHot(tf.tensor1d(ys,'int32'), classNames.length);
 
-    function captureImage(className) {
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
-      const imgTensor = tf.browser.fromPixels(canvas).resizeNearestNeighbor([64, 64]).toFloat().div(255).expandDims();
-      trainingData[className].push(imgTensor);
-      document.getElementById(`${className}-count`).innerText = `Images: ${trainingData[className].length}`;
-    }
+  // build classifier model (small dense net)
+  const inputDim = xTensor.shape[1];
+  const model = tf.sequential();
+  model.add(tf.layers.dense({ inputShape: [inputDim], units: 128, activation:'relu' }));
+  model.add(tf.layers.dropout({rate:0.25}));
+  model.add(tf.layers.dense({ units: classNames.length, activation:'softmax' }));
+  model.compile({ optimizer: tf.train.adam(0.0005), loss: 'categoricalCrossentropy', metrics:['accuracy'] });
 
-    async function trainModel() {
-      const xs = [];
-      const ys = [];
-      const classIndices = {};
-      classes.forEach((cls, i) => (classIndices[cls] = i));
-      for (let cls of classes) {
-        for (let img of trainingData[cls]) {
-          xs.push(img);
-          ys.push(classIndices[cls]);
+  trainStatus.innerText = 'Training...';
+  stopRequested = false;
+  isTraining = true;
+  try{
+    await model.fit(xTensor, yTensor, {
+      epochs: 20,
+      batchSize: Math.min(32, Math.floor(xs.length/2) || 8),
+      callbacks: {
+        onEpochEnd: async (epoch, logs) => {
+          trainStatus.innerText = `Epoch ${epoch+1} / 20 — loss: ${logs.loss.toFixed(3)} — acc: ${(logs.acc||logs.accuracy||0).toFixed(3)}`;
+          if(stopRequested) throw 'stopped';
+          await tf.nextFrame();
         }
       }
-      const xsTensor = tf.concat(xs);
-      const ysTensor = tf.oneHot(tf.tensor1d(ys, "int32"), classes.length);
-      model = tf.sequential();
-      model.add(tf.layers.flatten({ inputShape: [64, 64, 3] }));
-      model.add(tf.layers.dense({ units: 64, activation: "relu" }));
-      model.add(tf.layers.dense({ units: classes.length, activation: "softmax" }));
-      model.compile({ optimizer: "adam", loss: "categoricalCrossentropy", metrics: ["accuracy"] });
-      await model.fit(xsTensor, ysTensor, { epochs: 20 });
-      alert("✅ Training complete!");
-    }
+    });
+  } catch(e){
+    if(e === 'stopped') trainStatus.innerText = 'Training stopped';
+    else { console.error(e); trainStatus.innerText = 'Training error'; }
+    isTraining = false;
+    xTensor.dispose(); yTensor.dispose();
+    return;
+  }
 
-    function toggleLiveTest() {
-      if (!model) return alert("Train your model first!");
-      liveTest = !liveTest;
-      if (liveTest) {
-        document.querySelector("button[onclick='toggleLiveTest()']").innerText = "Stop Live Test";
-        runLivePrediction();
-      } else {
-        document.querySelector("button[onclick='toggleLiveTest()']").innerText = "Start Live Test";
-      }
-    }
+  classifierModel = model;
+  isTraining = false;
+  trainStatus.innerText = 'Training complete ✅';
+  xTensor.dispose(); yTensor.dispose();
+  renderBars();
+};
 
-    async function runLivePrediction() {
-      if (!liveTest) return;
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      ctx.drawImage(video, 0, 0);
-      const img = tf.browser.fromPixels(canvas).resizeNearestNeighbor([64, 64]).toFloat().div(255).expandDims();
-      const pred = model.predict(img);
-      const idx = pred.argMax(-1).dataSync()[0];
-      document.getElementById("prediction").innerText = `Prediction: ${classes[idx]}`;
-      await tf.nextFrame();
-      requestAnimationFrame(runLivePrediction);
-    }
-  </script>
+// ---------------------- Live prediction ----------------------
+startLiveBtn.onclick = ()=> { if(!classifierModel) return alert('Train or load a model first'); liveLoop = true; runLive(); startLiveBtn.disabled=true; stopLiveBtn.disabled=false; };
+stopLiveBtn.onclick = ()=> { liveLoop = false; startLiveBtn.disabled=false; stopLiveBtn.disabled=true; };
+
+async function runLive(){
+  while(liveLoop){
+    // capture frame
+    const canvas = document.createElement('canvas');
+    canvas.width = 224; canvas.height = 224;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(webcamEl, 0, 0, canvas.width, canvas.height);
+    // compute embedding
+    const img = tf.browser.fromPixels(canvas).toFloat().div(255).resizeNearestNeighbor([224,224]);
+    const emb = mobileNet.infer(img, 'conv_preds'); // [1,embeddingSize]
+    // predict
+    const pred = classifierModel.predict(emb);
+    const data = Array.from(pred.dataSync()); // probs
+    // find top index
+    const topIdx = data.indexOf(Math.max(...data));
+    const topName = classNames[topIdx] || '—';
+    const topPct = (data[topIdx]*100).toFixed(1) + '%';
+    // update UI (top and bars)
+    topLabel.innerText = topName;
+    topConfidence.innerText = `Confidence: ${topPct}`;
+    updateBars(data);
+    // cleanup
+    img.dispose(); emb.dispose(); pred.dispose();
+    await tf.nextFrame();
+  }
+}
+
+// ---------------------- Bars UI ----------------------
+function renderBars(){
+  barsContainer.innerHTML = '';
+  classNames.forEach((name, idx)=>{
+    const row = el('div',{class:'bar-row'});
+    row.style.display='flex';
+    row.style.alignItems='center';
+    row.style.gap='8px';
+    const nameEl = el('div',{class:'bar-name'}, name);
+    const wrap = el('div',{class:'bar-wrap'});
+    const fill = el('div',{class:'bar-fill'});
+    fill.style.width = '0%';
+    wrap.appendChild(fill);
+    const val = el('div',{class:'bar-val'}, '0%');
+    const barRow = el('div',{class:'bar-row'});
+    barRow.appendChild(nameEl);
+    barRow.appendChild(wrap);
+    barRow.appendChild(val);
+    barsContainer.appendChild(barRow);
+  });
+}
+
+function updateBars(probArray){
+  // probArray length = classNames.length
+  const rows = barsContainer.querySelectorAll('.bar-row');
+  if(rows.length===0) renderBars();
+  const barRows = barsContainer.querySelectorAll('.bar-row');
+  for(let i=0;i<classNames.length;i++){
+    const barRow = barRows[i];
+    if(!barRow) continue;
+    const fill = barRow.querySelector('.bar-wrap .bar-fill');
+    const val = barRow.querySelector('.bar-val');
+    const pct = (probArray[i]*100).toFixed(1) + '%';
+    if(fill) fill.style.width = (probArray[i]*100) + '%';
+    if(val) val.innerText = pct;
+  }
+}
+
+// ---------------------- Save / Load model ----------------------
+saveBtn.onclick = async ()=>{
+  if(!classifierModel) return alert('No trained model to save');
+  await classifierModel.save('downloads://my-classifier');
+  // also save classes as json
+  const classesBlob = new Blob([JSON.stringify(classNames)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(classesBlob);
+  a.download = 'classes.json';
+  a.click();
+};
+
+loadFile.onchange = async (e)=>{
+  const file = e.target.files[0];
+  if(!file) return;
+  // assume it's a model.json path? We need user to select model.json only (GitHub pages load won't accept local)
+  // Instead, offer loading via tf.loadLayersModel with file:// isn't supported in browser. For simplicity, we only handle uploaded classifier.json + weights via tf.io.browserFiles if user provides both files.
+  const files = e.target.files;
+  try{
+    const model = await tf.loadLayersModel(tf.io.browserFiles(Array.from(files)));
+    classifierModel = model;
+    alert('Model loaded (classifier). You still need to provide class list file if available.');
+  } catch(err){
+    alert('Failed to load model via file input. To load models use the "Load Saved Model" flow and provide both model.json and weights.bin selected together.');
+    console.error(err);
+  }
+};
+
+// ---------------------- helper: quick add by drag & drop optional ----------------------
+// allow quick image drag/drop on video to add to last class (optional)
+// skipped for simplicity
+
+// ---------------------- initial UI ----------------------
+renderBars();
+renderClasses = renderClasses; // expose
+renderClasses();
+
+})(); // end IIFE
+</script>
 </body>
 </html>
