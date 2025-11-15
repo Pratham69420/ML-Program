@@ -1,197 +1,59 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pro Teachable Machine</title>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
-<style>
-body { margin:0; font-family:Arial,sans-serif; background:#121212; color:#eee; display:flex; height:100vh; }
-#device-select { display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; }
-#device-select button { width:180px; margin:10px; font-size:18px; padding:10px; cursor:pointer; }
-#sidebar { width:300px; background:#1e1e1e; padding:15px; overflow-y:auto; display:none; border-right:2px solid #333; }
-#main { flex:1; padding:20px; display:flex; flex-direction:column; align-items:center; }
-video { width:320px; height:240px; background:#000; border-radius:10px; }
-.class-box { background:#242424; padding:10px; margin-bottom:10px; border-left:6px solid #777; border-radius:8px; }
-.btn { width:100%; padding:8px; margin:4px 0; border:none; border-radius:6px; background:#2979ff; color:white; cursor:pointer; font-size:14px; }
-.btn.red { background:#d32f2f; }
-.btn.gray { background:#555; }
-#emoji-picker { display:flex; flex-wrap:wrap; max-height:150px; overflow-y:auto; margin:6px 0; }
-.emoji-btn { padding:5px; font-size:18px; margin:2px; cursor:pointer; background:#333; border:none; border-radius:6px; }
-#prediction-container { width:320px; margin-top:15px; }
-.bar-bg { width:100%; height:18px; background:#333; border-radius:9px; margin-bottom:6px; }
-.bar-fill { height:18px; border-radius:9px; width:0%; transition:width .2s; }
-</style>
-</head>
-<body>
+<div>Teachable Machine Image Model</div>
+<button type="button" onclick="init()">Start</button>
+<div id="webcam-container"></div>
+<div id="label-container"></div>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
 
-<div id="device-select">
-<h1>Select Device</h1>
-<button onclick="selectDevice('phone')">📱 Phone</button>
-<button onclick="selectDevice('computer')">💻 Computer</button>
-</div>
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "./my_model/";
 
-<div id="sidebar">
-<h2>📚 Classes</h2>
-<div id="class-list"></div>
-<button class="btn" onclick="addClass()">➕ Add Class</button>
+    let model, webcam, labelContainer, maxPredictions;
 
-<h2>📷 Camera</h2>
-<div id="camera-buttons"></div>
-<select id="cameraSelect" class="btn gray" onchange="switchCamera()" style="display:none;"></select>
+    // Load the image model and setup the webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
 
-<h2>🧠 Model</h2>
-<button class="btn" onclick="trainModel()">Train Model</button>
-<div id="progress" style="width:100%; background:#333; height:12px; border-radius:10px; margin-top:10px; display:none;">
-<div id="progress-fill" style="height:12px; border-radius:10px; width:0%; background:#00e676;"></div>
-</div>
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
 
-<h2>🧪 Test</h2>
-<button class="btn" onclick="startTesting()">Start Test</button>
-<button class="btn red" onclick="stopTesting()">Stop</button>
-</div>
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+        window.requestAnimationFrame(loop);
 
-<div id="main">
-<h1>🔥 Pro Teachable Machine</h1>
-<video id="video" autoplay playsinline></video>
-<div id="prediction-container"></div>
-</div>
-
-<script>
-let classes=[],mobilenetModel,model,testInterval,deviceMode=null,currentCamId=null;
-const emojis=["😀","😂","😎","🤖","🚗","🚦","🛑","⚠️","🚴","🚙","🏎️","✈️","🐱","🐶","🌟","🔥","💧","🌳","🍎","🍔"];
-function randomColor(){ return `hsl(${Math.random()*360},80%,60%)`; }
-
-// ======= DEVICE SELECTION =======
-function selectDevice(mode){
-    deviceMode=mode;
-    document.getElementById("device-select").style.display="none";
-    document.getElementById("sidebar").style.display="block";
-    if(mode==="phone"){ listPhoneCameras(); } else { listComputerCameras(); }
-}
-
-// ======= CLASS FUNCTIONS =======
-function addClass(){
-    let name=prompt("Class name:"); if(!name) return;
-    showEmojiPicker(name);
-}
-
-function showEmojiPicker(name){
-    let container=document.createElement("div"); container.id="emoji-picker"; document.getElementById("sidebar").appendChild(container);
-    // No emoji button
-    let noBtn=document.createElement("button"); noBtn.className="emoji-btn"; noBtn.innerText="❌ No Emoji";
-    noBtn.onclick=()=>{ finalizeClass(name,null); container.remove(); };
-    container.appendChild(noBtn);
-    // All emojis
-    emojis.forEach(e=>{ let btn=document.createElement("button"); btn.className="emoji-btn"; btn.innerText=e;
-        btn.onclick=()=>{ finalizeClass(name,e); container.remove(); };
-    container.appendChild(btn);
-    });
-}
-
-function finalizeClass(name,emoji){
-    classes.push({name,emoji,color:randomColor(),images:[]});
-    renderClassList();
-}
-
-function renderClassList(){
-    let list=document.getElementById("class-list"); list.innerHTML="";
-    classes.forEach((c,i)=>{
-        list.innerHTML+=`
-        <div class="class-box" style="border-left-color:${c.color}">
-        <h3>${c.emoji||""} ${c.name}</h3>
-        <button class="btn gray" onclick="captureImage(${i})">📸 Capture</button>
-        <input type="file" multiple accept="image/*" onchange="uploadImages(event,${i})">
-        <button class="btn gray" onclick="removeAllImages(${i})">🗑️ Remove All Photos</button>
-        <button class="btn red" onclick="deleteClass(${i})">❌ Delete Class</button>
-        <p>${c.images.length} images</p>
-        </div>`;
-    });
-}
-
-function deleteClass(i){ classes.splice(i,1); renderClassList(); }
-function removeAllImages(i){ classes[i].images=[]; renderClassList(); }
-
-// ======= IMAGE CAPTURE =======
-async function captureImage(i){
-    let video=document.getElementById("video");
-    let canvas=document.createElement("canvas"); canvas.width=224; canvas.height=224;
-    canvas.getContext("2d").drawImage(video,0,0,224,224);
-    classes[i].images.push(canvas.toDataURL());
-    renderClassList();
-}
-
-function uploadImages(ev,i){
-    for(let file of ev.target.files){
-        let reader=new FileReader();
-        reader.onload=e=>{ classes[i].images.push(e.target.result); renderClassList(); }
-        reader.readAsDataURL(file);
-    }
-}
-
-// ======= CAMERA FUNCTIONS =======
-async function listComputerCameras(){
-    let devices=await navigator.mediaDevices.enumerateDevices();
-    let cams=devices.filter(d=>d.kind==="videoinput");
-    let sel=document.getElementById("cameraSelect"); sel.style.display="block"; sel.innerHTML="";
-    cams.forEach(c=>{ let opt=document.createElement("option"); opt.value=c.deviceId; opt.textContent=c.label||"Camera"; sel.appendChild(opt); });
-    if(cams[0]) startCamera(cams[0].deviceId);
-}
-
-function listPhoneCameras(){
-    document.getElementById("camera-buttons").innerHTML="";
-    let btnFront=document.createElement("button"); btnFront.innerText="Front"; btnFront.className="btn gray"; btnFront.onclick=()=>startCamera("user"); 
-    let btnBack=document.createElement("button"); btnBack.innerText="Back"; btnBack.className="btn gray"; btnBack.onclick=()=>startCamera("environment");
-    document.getElementById("camera-buttons").appendChild(btnFront); document.getElementById("camera-buttons").appendChild(btnBack);
-    startCamera("user");
-}
-
-async function startCamera(deviceId=null){
-    let vid=document.getElementById("video");
-    let stream=null;
-    if(deviceMode==="phone"){ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:deviceId}}); } 
-    else { if(deviceId) stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:deviceId}}}); else stream=await navigator.mediaDevices.getUserMedia({video:true}); }
-    vid.srcObject=stream;
-}
-function switchCamera(){ startCamera(document.getElementById("cameraSelect").value); }
-
-// ======= MODEL FUNCTIONS =======
-function preprocess(img){ return tf.tidy(()=>tf.browser.fromPixels(img).resizeBilinear([224,224]).toFloat().div(255).expandDims()); }
-async function loadMobileNet(){ mobilenetModel=await mobilenet.load({version:2,alpha:1.0}); }
-
-async function trainModel(){
-    if(!mobilenetModel) await loadMobileNet();
-    alert("Training started…"); document.getElementById("progress").style.display="block";
-    let xs=[],ys=[];
-    for(let i=0;i<classes.length;i++){
-        for(let imgSrc of classes[i].images){
-            let img=new Image(); img.src=imgSrc; await new Promise(r=>img.onload=r);
-            xs.push(mobilenetModel.infer(img,"conv_preds")); ys.push(i);
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+        for (let i = 0; i < maxPredictions; i++) { // and class labels
+            labelContainer.appendChild(document.createElement("div"));
         }
     }
-    if(xs.length===0){ alert("No images to train!"); return; }
-    let x=tf.concat(xs); let y=tf.oneHot(tf.tensor1d(ys,"int32"),classes.length);
-    model=tf.sequential();
-    model.add(tf.layers.flatten({inputShape:mobilenetModel.infer(tf.zeros([1,224,224,3]),"conv_preds").shape.slice(1)}));
-    model.add(tf.layers.dense({units:128,activation:"relu"}));
-    model.add(tf.layers.dense({units:classes.length,activation:"softmax"}));
-    model.compile({optimizer:"adam",loss:"categoricalCrossentropy",metrics:["accuracy"]});
-    await model.fit(x,y,{epochs:12,shuffle:true,callbacks:{onEpochEnd:(epoch,logs)=>{document.getElementById("progress-fill").style.width=Math.round(((epoch+1)/12)*100)+"%";}}});
-    alert("Training complete!"); createBars();
-}
 
-function createBars(){ let c=document.getElementById("prediction-container"); c.innerHTML=""; classes.forEach(k=>{c.innerHTML+=`<div>${k.emoji||""} ${k.name}</div><div class="bar-bg"><div class="bar-fill" id="bar-${k.name}" style="background:${k.color}"></div></div>`;}); }
+    async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
 
-function startTesting(){ stopTesting(); createBars(); testInterval=setInterval(runPrediction,200); }
-function stopTesting(){ clearInterval(testInterval); }
-
-async function runPrediction(){
-    if(!model) return; let video=document.getElementById("video");
-    let act=mobilenetModel.infer(video,"conv_preds");
-    let preds=model.predict(act).dataSync();
-    classes.forEach((c,i)=>{ document.getElementById("bar-"+c.name).style.width=(preds[i]*100)+"%"; });
-}
+    // run the webcam image through the image model
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+    }
 </script>
-</body>
-</html>
