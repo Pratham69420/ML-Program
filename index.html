@@ -3,25 +3,25 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Manual Device Pro Teachable Machine</title>
+<title>Pro Teachable Machine</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
 <style>
-body { margin:0; font-family:Arial,sans-serif; background:#121212; color:#eee; display:flex; height:100vh;}
-#sidebar { width:280px; background:#1e1e1e; padding:15px; border-right:2px solid #333; overflow-y:auto; display:none;}
-#main { flex:1; padding:20px;}
-.class-box { background:#242424; padding:12px; border-radius:10px; border-left:8px solid #777; margin-bottom:12px;}
-.btn { width:100%; padding:10px; margin:6px 0; border:none; border-radius:7px; background:#2979ff; color:white; cursor:pointer; font-size:14px;}
-.btn.red { background:#d32f2f;}
-.btn.gray { background:#444;}
-video { width:320px; border-radius:10px; background:#000;}
-#prediction-container { width:320px; margin-top:20px;}
-.bar-bg { width:100%; height:18px; border-radius:9px; background:#333; margin-bottom:8px;}
-.bar-fill { height:18px; border-radius:9px; width:0%; transition:width .25s;}
-#emoji-sidebar { display:flex; flex-wrap:wrap; max-height:200px; overflow-y:auto; margin:6px 0;}
-.emoji-btn { padding:6px; font-size:18px; margin:2px; cursor:pointer; background:#333; border-radius:6px; border:none;}
-#device-select { display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column;}
-#device-select button { width:150px; margin:10px; font-size:18px;}
+body { margin:0; font-family:Arial,sans-serif; background:#121212; color:#eee; display:flex; height:100vh; }
+#device-select { display:flex; flex-direction:column; justify-content:center; align-items:center; width:100%; }
+#device-select button { width:180px; margin:10px; font-size:18px; padding:10px; cursor:pointer; }
+#sidebar { width:300px; background:#1e1e1e; padding:15px; overflow-y:auto; display:none; border-right:2px solid #333; }
+#main { flex:1; padding:20px; display:flex; flex-direction:column; align-items:center; }
+video { width:320px; height:240px; background:#000; border-radius:10px; }
+.class-box { background:#242424; padding:10px; margin-bottom:10px; border-left:6px solid #777; border-radius:8px; }
+.btn { width:100%; padding:8px; margin:4px 0; border:none; border-radius:6px; background:#2979ff; color:white; cursor:pointer; font-size:14px; }
+.btn.red { background:#d32f2f; }
+.btn.gray { background:#555; }
+#emoji-picker { display:flex; flex-wrap:wrap; max-height:150px; overflow-y:auto; margin:6px 0; }
+.emoji-btn { padding:5px; font-size:18px; margin:2px; cursor:pointer; background:#333; border:none; border-radius:6px; }
+#prediction-container { width:320px; margin-top:15px; }
+.bar-bg { width:100%; height:18px; background:#333; border-radius:9px; margin-bottom:6px; }
+.bar-fill { height:18px; border-radius:9px; width:0%; transition:width .2s; }
 </style>
 </head>
 <body>
@@ -68,44 +68,30 @@ function selectDevice(mode){
     deviceMode=mode;
     document.getElementById("device-select").style.display="none";
     document.getElementById("sidebar").style.display="block";
-    if(mode==="phone"){
-        listPhoneCameras();
-    } else {
-        listComputerCameras();
-    }
+    if(mode==="phone"){ listPhoneCameras(); } else { listComputerCameras(); }
 }
 
 // ======= CLASS FUNCTIONS =======
 function addClass(){
-    let name = prompt("Class name:"); 
-    if(!name) return;
+    let name=prompt("Class name:"); if(!name) return;
+    showEmojiPicker(name);
+}
 
-    // Create emoji picker overlay
-    let container = document.createElement("div");
-    container.id = "emoji-sidebar"; 
-    container.style.maxHeight = "200px";
-    container.style.overflowY = "scroll";
-    document.getElementById("sidebar").appendChild(container);
-
-    // Add "No Emoji" button
-    let noEmojiBtn = document.createElement("button");
-    noEmojiBtn.className = "emoji-btn";
-    noEmojiBtn.innerText = "❌ No Emoji";
-    noEmojiBtn.onclick = () => { finalizeClass(name, null); container.remove(); };
-    container.appendChild(noEmojiBtn);
-
-    // Add all emojis
-    emojis.forEach(e => {
-        let btn = document.createElement("button");
-        btn.className = "emoji-btn"; 
-        btn.innerText = e;
-        btn.onclick = () => { finalizeClass(name, e); container.remove(); };
-        container.appendChild(btn);
+function showEmojiPicker(name){
+    let container=document.createElement("div"); container.id="emoji-picker"; document.getElementById("sidebar").appendChild(container);
+    // No emoji button
+    let noBtn=document.createElement("button"); noBtn.className="emoji-btn"; noBtn.innerText="❌ No Emoji";
+    noBtn.onclick=()=>{ finalizeClass(name,null); container.remove(); };
+    container.appendChild(noBtn);
+    // All emojis
+    emojis.forEach(e=>{ let btn=document.createElement("button"); btn.className="emoji-btn"; btn.innerText=e;
+        btn.onclick=()=>{ finalizeClass(name,e); container.remove(); };
+    container.appendChild(btn);
     });
 }
 
-function finalizeClass(name, emoji){
-    classes.push({name, emoji, color: randomColor(), images: []});
+function finalizeClass(name,emoji){
+    classes.push({name,emoji,color:randomColor(),images:[]});
     renderClassList();
 }
 
@@ -139,7 +125,7 @@ async function captureImage(i){
 function uploadImages(ev,i){
     for(let file of ev.target.files){
         let reader=new FileReader();
-        reader.onload=e=>{ classes[i].images.push(e.target.result); renderClassList();}
+        reader.onload=e=>{ classes[i].images.push(e.target.result); renderClassList(); }
         reader.readAsDataURL(file);
     }
 }
@@ -155,24 +141,17 @@ async function listComputerCameras(){
 
 function listPhoneCameras(){
     document.getElementById("camera-buttons").innerHTML="";
-    let btnFront=document.createElement("button"); btnFront.innerText="Front"; btnFront.className="btn gray";
-    btnFront.onclick=()=>startCamera("user"); 
-    let btnBack=document.createElement("button"); btnBack.innerText="Back"; btnBack.className="btn gray";
-    btnBack.onclick=()=>startCamera("environment");
-    document.getElementById("camera-buttons").appendChild(btnFront);
-    document.getElementById("camera-buttons").appendChild(btnBack);
+    let btnFront=document.createElement("button"); btnFront.innerText="Front"; btnFront.className="btn gray"; btnFront.onclick=()=>startCamera("user"); 
+    let btnBack=document.createElement("button"); btnBack.innerText="Back"; btnBack.className="btn gray"; btnBack.onclick=()=>startCamera("environment");
+    document.getElementById("camera-buttons").appendChild(btnFront); document.getElementById("camera-buttons").appendChild(btnBack);
     startCamera("user");
 }
 
 async function startCamera(deviceId=null){
     let vid=document.getElementById("video");
     let stream=null;
-    if(deviceMode==="phone"){
-        stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:deviceId}});
-    } else {
-        if(deviceId) stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:deviceId}}});
-        else stream=await navigator.mediaDevices.getUserMedia({video:true});
-    }
+    if(deviceMode==="phone"){ stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:deviceId}}); } 
+    else { if(deviceId) stream=await navigator.mediaDevices.getUserMedia({video:{deviceId:{exact:deviceId}}}); else stream=await navigator.mediaDevices.getUserMedia({video:true}); }
     vid.srcObject=stream;
 }
 function switchCamera(){ startCamera(document.getElementById("cameraSelect").value); }
@@ -187,11 +166,11 @@ async function trainModel(){
     let xs=[],ys=[];
     for(let i=0;i<classes.length;i++){
         for(let imgSrc of classes[i].images){
-            let img=new Image(); img.src=imgSrc;
-            await new Promise(r=>img.onload=r);
+            let img=new Image(); img.src=imgSrc; await new Promise(r=>img.onload=r);
             xs.push(mobilenetModel.infer(img,"conv_preds")); ys.push(i);
         }
     }
+    if(xs.length===0){ alert("No images to train!"); return; }
     let x=tf.concat(xs); let y=tf.oneHot(tf.tensor1d(ys,"int32"),classes.length);
     model=tf.sequential();
     model.add(tf.layers.flatten({inputShape:mobilenetModel.infer(tf.zeros([1,224,224,3]),"conv_preds").shape.slice(1)}));
