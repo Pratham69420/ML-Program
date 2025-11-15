@@ -18,7 +18,7 @@ video { width:320px; border-radius:10px; background:#000;}
 #prediction-container { width:320px; margin-top:20px;}
 .bar-bg { width:100%; height:18px; border-radius:9px; background:#333; margin-bottom:8px;}
 .bar-fill { height:18px; border-radius:9px; width:0%; transition:width .25s;}
-#emoji-sidebar { display:flex; flex-wrap:wrap; max-height:150px; overflow-y:auto; margin:6px 0;}
+#emoji-sidebar { display:flex; flex-wrap:wrap; max-height:200px; overflow-y:auto; margin:6px 0;}
 .emoji-btn { padding:6px; font-size:18px; margin:2px; cursor:pointer; background:#333; border-radius:6px; border:none;}
 #device-select { display:flex; justify-content:center; align-items:center; height:100vh; flex-direction:column;}
 #device-select button { width:150px; margin:10px; font-size:18px;}
@@ -63,6 +63,7 @@ let classes=[],mobilenetModel,model,testInterval,deviceMode=null,currentCamId=nu
 const emojis=["😀","😂","😎","🤖","🚗","🚦","🛑","⚠️","🚴","🚙","🏎️","✈️","🐱","🐶","🌟","🔥","💧","🌳","🍎","🍔"];
 function randomColor(){ return `hsl(${Math.random()*360},80%,60%)`; }
 
+// ======= DEVICE SELECTION =======
 function selectDevice(mode){
     deviceMode=mode;
     document.getElementById("device-select").style.display="none";
@@ -74,19 +75,40 @@ function selectDevice(mode){
     }
 }
 
+// ======= CLASS FUNCTIONS =======
 function addClass(){
-    let name=prompt("Class name:"); if(!name)return;
-    let emoji=null;
-    showEmojiSidebar(selected=>{
-        emoji=selected;
-        finalizeClass(name,emoji);
+    let name = prompt("Class name:"); 
+    if(!name) return;
+
+    // Create emoji picker overlay
+    let container = document.createElement("div");
+    container.id = "emoji-sidebar"; 
+    container.style.maxHeight = "200px";
+    container.style.overflowY = "scroll";
+    document.getElementById("sidebar").appendChild(container);
+
+    // Add "No Emoji" button
+    let noEmojiBtn = document.createElement("button");
+    noEmojiBtn.className = "emoji-btn";
+    noEmojiBtn.innerText = "❌ No Emoji";
+    noEmojiBtn.onclick = () => { finalizeClass(name, null); container.remove(); };
+    container.appendChild(noEmojiBtn);
+
+    // Add all emojis
+    emojis.forEach(e => {
+        let btn = document.createElement("button");
+        btn.className = "emoji-btn"; 
+        btn.innerText = e;
+        btn.onclick = () => { finalizeClass(name, e); container.remove(); };
+        container.appendChild(btn);
     });
-    if(!emoji) finalizeClass(name,null);
 }
-function finalizeClass(name,emoji){
-    classes.push({name,emoji,color:randomColor(),images:[]});
+
+function finalizeClass(name, emoji){
+    classes.push({name, emoji, color: randomColor(), images: []});
     renderClassList();
 }
+
 function renderClassList(){
     let list=document.getElementById("class-list"); list.innerHTML="";
     classes.forEach((c,i)=>{
@@ -105,6 +127,7 @@ function renderClassList(){
 function deleteClass(i){ classes.splice(i,1); renderClassList(); }
 function removeAllImages(i){ classes[i].images=[]; renderClassList(); }
 
+// ======= IMAGE CAPTURE =======
 async function captureImage(i){
     let video=document.getElementById("video");
     let canvas=document.createElement("canvas"); canvas.width=224; canvas.height=224;
@@ -112,6 +135,7 @@ async function captureImage(i){
     classes[i].images.push(canvas.toDataURL());
     renderClassList();
 }
+
 function uploadImages(ev,i){
     for(let file of ev.target.files){
         let reader=new FileReader();
@@ -120,6 +144,7 @@ function uploadImages(ev,i){
     }
 }
 
+// ======= CAMERA FUNCTIONS =======
 async function listComputerCameras(){
     let devices=await navigator.mediaDevices.enumerateDevices();
     let cams=devices.filter(d=>d.kind==="videoinput");
@@ -127,10 +152,12 @@ async function listComputerCameras(){
     cams.forEach(c=>{ let opt=document.createElement("option"); opt.value=c.deviceId; opt.textContent=c.label||"Camera"; sel.appendChild(opt); });
     if(cams[0]) startCamera(cams[0].deviceId);
 }
+
 function listPhoneCameras(){
     document.getElementById("camera-buttons").innerHTML="";
     let btnFront=document.createElement("button"); btnFront.innerText="Front"; btnFront.className="btn gray";
-    btnFront.onclick=()=>startCamera("user"); let btnBack=document.createElement("button"); btnBack.innerText="Back"; btnBack.className="btn gray";
+    btnFront.onclick=()=>startCamera("user"); 
+    let btnBack=document.createElement("button"); btnBack.innerText="Back"; btnBack.className="btn gray";
     btnBack.onclick=()=>startCamera("environment");
     document.getElementById("camera-buttons").appendChild(btnFront);
     document.getElementById("camera-buttons").appendChild(btnBack);
@@ -148,11 +175,10 @@ async function startCamera(deviceId=null){
     }
     vid.srcObject=stream;
 }
-
 function switchCamera(){ startCamera(document.getElementById("cameraSelect").value); }
 
+// ======= MODEL FUNCTIONS =======
 function preprocess(img){ return tf.tidy(()=>tf.browser.fromPixels(img).resizeBilinear([224,224]).toFloat().div(255).expandDims()); }
-
 async function loadMobileNet(){ mobilenetModel=await mobilenet.load({version:2,alpha:1.0}); }
 
 async function trainModel(){
@@ -176,7 +202,7 @@ async function trainModel(){
     alert("Training complete!"); createBars();
 }
 
-function createBars(){ let c=document.getElementById("prediction-container"); c.innerHTML=""; classes.forEach(k=>{c.innerHTML+=`<div>${k.emoji||""} ${k.name}</div><div class="bar-bg"><div class="bar-fill" id="bar-${k.name}" style="background:${k.color}"></div></div>`;});}
+function createBars(){ let c=document.getElementById("prediction-container"); c.innerHTML=""; classes.forEach(k=>{c.innerHTML+=`<div>${k.emoji||""} ${k.name}</div><div class="bar-bg"><div class="bar-fill" id="bar-${k.name}" style="background:${k.color}"></div></div>`;}); }
 
 function startTesting(){ stopTesting(); createBars(); testInterval=setInterval(runPrediction,200); }
 function stopTesting(){ clearInterval(testInterval); }
@@ -186,13 +212,6 @@ async function runPrediction(){
     let act=mobilenetModel.infer(video,"conv_preds");
     let preds=model.predict(act).dataSync();
     classes.forEach((c,i)=>{ document.getElementById("bar-"+c.name).style.width=(preds[i]*100)+"%"; });
-}
-
-function showEmojiSidebar(callback){
-    let container=document.createElement("div"); container.id="emoji-sidebar"; document.getElementById("sidebar").appendChild(container);
-    emojis.forEach(e=>{ let btn=document.createElement("button"); btn.className="emoji-btn"; btn.innerText=e;
-        btn.onclick=()=>{ callback(e); container.remove(); }; container.appendChild(btn);
-    });
 }
 </script>
 </body>
