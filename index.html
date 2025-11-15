@@ -1,39 +1,312 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>ML Trainer - Teachable Machine Style</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0"></script>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pro Teachable Machine</title>
+
+<!-- TensorFlow.js -->
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0"></script>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #121212;
+        color: #eee;
+        display: flex;
+        height: 100vh;
+    }
+    #sidebar {
+        width: 270px;
+        background: #1e1e1e;
+        padding: 15px;
+        border-right: 2px solid #333;
+        overflow-y: auto;
+    }
+    #main {
+        flex: 1;
+        padding: 20px;
+    }
+    .btn {
+        width: 100%;
+        padding: 10px;
+        margin: 6px 0;
+        border: none;
+        border-radius: 7px;
+        background: #2979ff;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .btn.red { background:#d32f2f; }
+    .btn.gray { background:#444; }
+
+    .class-box {
+        background: #242424;
+        padding: 12px;
+        border-radius:10px;
+        border-left: 8px solid #777;
+        margin-bottom: 12px;
+    }
+
+    video {
+        width: 320px;
+        border-radius: 10px;
+        background:#000;
+    }
+
+    #prediction-container { width:320px; margin-top:20px; }
+
+    .bar-bg {
+        width:100%; height:18px; border-radius:9px;
+        background:#333; margin-bottom:8px;
+    }
+    .bar-fill {
+        height:18px; border-radius:9px;
+        width:0%; transition:width .25s;
+    }
+
+    #progress {
+        width:100%; background:#333; height:12px;
+        border-radius:10px; margin-top:10px; display:none;
+    }
+    #progress-fill {
+        height:12px; border-radius:10px; width:0%;
+        background:#00e676;
+    }
+</style>
+
 </head>
 <body>
 
-<h1>Machine Learning Trainer (Teachable Machine Style)</h1>
+<div id="sidebar">
 
-<div class="section">
-    <label>Select Camera:</label>
-    <select id="cameraSelect"></select>
-    <button onclick="startCamera()">Start Camera</button>
+<h2>📚 Classes</h2>
+<div id="class-list"></div>
+<button class="btn" onclick="addClass()">➕ Add Class</button>
+
+<h2>📷 Camera</h2>
+<select id="cameraSelect" class="btn gray" onchange="switchCamera()"></select>
+<button class="btn gray" onclick="setDeviceMode('auto')">Auto</button>
+<button class="btn gray" onclick="setDeviceMode('phone')">Phone</button>
+<button class="btn gray" onclick="setDeviceMode('computer')">Computer</button>
+
+<h2>🧠 Model</h2>
+<button class="btn" onclick="trainModel()">Train Model</button>
+<div id="progress"><div id="progress-fill"></div></div>
+<button class="btn" onclick="exportModel()">Export Model</button>
+<input type="file" id="loadmodeljson" accept=".json" style="display:none" onchange="loadModelJSON(event)">
+<input type="file" id="loadmodelweights" accept=".bin" style="display:none" onchange="loadModelWeights(event)">
+<button class="btn gray" onclick="triggerLoad()">Load Model</button>
+
+<h2>🧪 Test</h2>
+<button class="btn" onclick="startTesting()">Start Test</button>
+<button class="btn red" onclick="stopTesting()">Stop</button>
+
 </div>
 
-<video id="webcam" autoplay playsinline></video>
+<div id="main">
 
-<div class="section">
-    <input id="className" placeholder="New Class Name">
-    <button onclick="addClass()">Add Class</button>
+<h1>🔥 Pro Teachable Machine</h1>
+
+<video id="video" autoplay playsinline></video>
+
+<div id="prediction-container"></div>
+
 </div>
 
-<div id="classList"></div>
+<script>
 
-<button id="trainBtn" onclick="trainModel()">Train Model</button>
-<div id="status"></div>
+let classes = [];
+let mobilenetModel;
+let model;
+let currentJSON = null;
+let currentWeights = null;
 
-<h2>Live Prediction</h2>
-<button onclick="startPrediction()">Start Predicting</button>
+function randomColor() {
+    return `hsl(${Math.random()*360},80%,60%)`;
+}
 
-<h3 id="topPrediction"></h3>
-<div id="predictionBars"></div>
+function addClass() {
+    let name = prompt("Class name:");
+    if (!name) return;
+    let emoji = prompt("Emoji:");
+    if (!emoji) emoji = "🔵";
 
-<script src="script.js"></script>
+    classes.push({ name, emoji, color: randomColor(), images: [] });
+    renderClassList();
+}
+
+function renderClassList() {
+    let list = document.getElementById("class-list");
+    list.innerHTML = "";
+    classes.forEach((c,i)=>{
+        list.innerHTML += `
+        <div class="class-box" style="border-left-color:${c.color}">
+            <h3>${c.emoji} ${c.name}</h3>
+            <button class="btn gray" onclick="captureImage(${i})">📸 Capture</button>
+            <input type="file" multiple accept="image/*" onchange="uploadImages(event,${i})">
+            <p>${c.images.length} images</p>
+        </div>`;
+    });
+}
+
+async function captureImage(i){
+    let video = document.getElementById("video");
+    let canvas = document.createElement("canvas");
+    canvas.width=224; canvas.height=224;
+    canvas.getContext("2d").drawImage(video,0,0,224,224);
+    classes[i].images.push(canvas.toDataURL());
+    renderClassList();
+}
+
+function uploadImages(ev,i){
+    for(let file of ev.target.files){
+        let reader=new FileReader();
+        reader.onload=e=>{
+            classes[i].images.push(e.target.result);
+            renderClassList();
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+async function listCameras(){
+    let devices=await navigator.mediaDevices.enumerateDevices();
+    let cams=devices.filter(d=>d.kind==="videoinput");
+    let sel=document.getElementById("cameraSelect");
+    sel.innerHTML="";
+    cams.forEach(c=>{
+        let opt=document.createElement("option");
+        opt.value=c.deviceId;
+        opt.textContent=c.label||"Camera";
+        sel.appendChild(opt);
+    });
+}
+
+async function startCamera(deviceId=null){
+    let vid=document.getElementById("video");
+    let stream=await navigator.mediaDevices.getUserMedia(
+        deviceId ? {video:{deviceId:{exact:deviceId}}} : {video:true}
+    );
+    vid.srcObject=stream;
+}
+
+function switchCamera(){
+    startCamera(document.getElementById("cameraSelect").value);
+}
+
+function setDeviceMode(m){}
+
+function preprocess(img){
+    return tf.tidy(()=>tf.browser.fromPixels(img).resizeBilinear([224,224]).toFloat().div(255).expandDims());
+}
+
+async function loadMobileNet(){
+    mobilenetModel = await mobilenet.load({version:2,alpha:1.0});
+}
+
+async function trainModel(){
+    alert("Training started…");
+
+    document.getElementById("progress").style.display="block";
+    document.getElementById("progress-fill").style.width="0%";
+
+    if(!mobilenetModel) await loadMobileNet();
+
+    let xs=[], ys=[];
+
+    for(let i=0;i<classes.length;i++){
+        for(let imgSrc of classes[i].images){
+            let img=new Image();
+            img.src=imgSrc;
+            await new Promise(r=>img.onload=r);
+
+            let activation = mobilenetModel.infer(img, "conv_preds");
+            xs.push(activation);
+            ys.push(i);
+        }
+    }
+
+    let x = tf.concat(xs);
+    let y = tf.oneHot(tf.tensor1d(ys,"int32"), classes.length);
+
+    model=tf.sequential();
+    model.add(tf.layers.flatten({inputShape: mobilenetModel.infer(tf.zeros([1,224,224,3]),"conv_preds").shape.slice(1)}));
+    model.add(tf.layers.dense({units:128,activation:"relu"}));
+    model.add(tf.layers.dense({units:classes.length,activation:"softmax"}));
+
+    model.compile({optimizer:"adam",loss:"categoricalCrossentropy",metrics:["accuracy"]});
+
+    await model.fit(x,y,{
+        epochs:12,
+        shuffle:true,
+        callbacks:{
+            onEpochEnd:(epoch,logs)=>{
+                document.getElementById("progress-fill").style.width =
+                    Math.round(((epoch+1)/12)*100)+"%";
+            }
+        }
+    });
+
+    alert("Training complete!");
+}
+
+function createBars(){
+    let c=document.getElementById("prediction-container");
+    c.innerHTML="";
+    classes.forEach(k=>{
+        c.innerHTML+=`
+        <div>${k.emoji} ${k.name}</div>
+        <div class="bar-bg"><div class="bar-fill" id="bar-${k.name}" style="background:${k.color}"></div></div>`;
+    });
+}
+
+let interval;
+function startTesting(){
+    createBars();
+    stopTesting();
+    interval=setInterval(runPrediction,200);
+}
+function stopTesting(){ clearInterval(interval); }
+
+async function runPrediction(){
+    if(!model) return;
+    let video=document.getElementById("video");
+    let act=mobilenetModel.infer(video,"conv_preds");
+    let preds=model.predict(act).dataSync();
+    classes.forEach((c,i)=>{
+        let bar=document.getElementById("bar-"+c.name);
+        bar.style.width=(preds[i]*100)+"%";
+    });
+}
+
+function exportModel(){
+    model.save("downloads://traffic-model");
+}
+
+function triggerLoad(){
+    document.getElementById("loadmodeljson").click();
+}
+function loadModelJSON(e){
+    currentJSON=e.target.files[0];
+    document.getElementById("loadmodelweights").click();
+}
+async function loadModelWeights(e){
+    currentWeights=e.target.files[0];
+    let jsonURL=URL.createObjectURL(currentJSON);
+    let weightsURL=URL.createObjectURL(currentWeights);
+
+    model=await tf.loadLayersModel(jsonURL,{weightsRequestUrl:weightsURL});
+    alert("Model Loaded!");
+}
+
+listCameras();
+startCamera();
+
+</script>
+
 </body>
 </html>
