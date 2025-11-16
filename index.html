@@ -1,59 +1,279 @@
-<div>Teachable Machine Image Model</div>
-<button type="button" onclick="init()">Start</button>
-<div id="webcam-container"></div>
-<div id="label-container"></div>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
-<script type="text/javascript">
-    // More API functions here:
-    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>ML Classifier Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0"></script>
 
-    // the link to your model provided by Teachable Machine export panel
-    const URL = "./my_model/";
+<style>
+/* ---------- GLOBAL ---------- */
+body {
+  margin: 0;
+  background: #111;
+  color: white;
+  font-family: Arial, sans-serif;
+  overflow-x: hidden;
+}
 
-    let model, webcam, labelContainer, maxPredictions;
+/* ---------- LAYOUT ---------- */
+.container {
+  display: flex;
+  flex-direction: row;
+  height: 100vh;
+}
 
-    // Load the image model and setup the webcam
-    async function init() {
-        const modelURL = URL + "model.json";
-        const metadataURL = URL + "metadata.json";
+.sidebar {
+  width: 270px;
+  background: #1c1c1c;
+  padding: 20px;
+  overflow-y: auto;
+}
 
-        // load the model and metadata
-        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
-        // or files from your local hard drive
-        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
-        model = await tmImage.load(modelURL, metadataURL);
-        maxPredictions = model.getTotalClasses();
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  align-items: center;
+}
 
-        // Convenience function to setup a webcam
-        const flip = true; // whether to flip the webcam
-        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
-        await webcam.setup(); // request access to the webcam
-        await webcam.play();
-        window.requestAnimationFrame(loop);
+/* ---------- CAMERA AREA ---------- */
+#video {
+  border-radius: 10px;
+  background: black;
+}
 
-        // append elements to the DOM
-        document.getElementById("webcam-container").appendChild(webcam.canvas);
-        labelContainer = document.getElementById("label-container");
-        for (let i = 0; i < maxPredictions; i++) { // and class labels
-            labelContainer.appendChild(document.createElement("div"));
-        }
-    }
+/*** BIGGER ON COMPUTER ***/
+.desktop #video {
+  width: 60vw;
+  height: auto;
+}
 
-    async function loop() {
-        webcam.update(); // update the webcam frame
-        await predict();
-        window.requestAnimationFrame(loop);
-    }
+/*** SMALLER BUT CLEAN ON PHONE ***/
+.phone #video {
+  width: 95vw;
+  height: auto;
+}
 
-    // run the webcam image through the image model
-    async function predict() {
-        // predict can take in an image, video or canvas html element
-        const prediction = await model.predict(webcam.canvas);
-        for (let i = 0; i < maxPredictions; i++) {
-            const classPrediction =
-                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
-            labelContainer.childNodes[i].innerHTML = classPrediction;
-        }
-    }
+/* ---------- BUTTONS ---------- */
+button {
+  background: #333;
+  color: white;
+  padding: 10px 14px;
+  margin: 4px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+}
+button:hover {
+  background: #444;
+}
+
+/* ---------- CLASS LIST ---------- */
+.classBox {
+  background: #222;
+  padding: 12px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <h2>Classes</h2>
+    <div id="classList"></div>
+
+    <button onclick="addClass()">➕ Add Class</button>
+    <button onclick="switchMode()">🔄 Switch Device Mode</button>
+    <hr>
+
+    <button onclick="loadTMModel()">📥 Load TM Model</button>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="main">
+    <h1>ML Classifier Pro</h1>
+
+    <video id="video" autoplay playsinline></video>
+
+    <div>
+      <button onclick="capture()">📸 Capture</button>
+      <button onclick="startPredict()">▶ Live Predict</button>
+    </div>
+
+    <h2 id="predictionLabel">Prediction: —</h2>
+  </div>
+</div>
+
+<script>
+/* ======================================================
+   DEVICE MODE
+======================================================*/
+let deviceMode = ""; // "phone" or "desktop"
+
+function autoDetectDevice() {
+  if (window.innerWidth < 700) deviceMode = "phone";
+  else deviceMode = "desktop";
+  applyDeviceClass();
+}
+
+function switchMode() {
+  deviceMode = (deviceMode === "phone") ? "desktop" : "phone";
+  applyDeviceClass();
+}
+
+function applyDeviceClass() {
+  document.body.classList.remove("phone", "desktop");
+  document.body.classList.add(deviceMode);
+}
+
+/* ======================================================
+   CAMERA SETUP
+======================================================*/
+async function startCamera() {
+  let constraints;
+
+  if (deviceMode === "phone") {
+    constraints = { video: { facingMode: "environment" } };
+  } else {
+    constraints = { video: true };
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia(constraints);
+  document.getElementById("video").srcObject = stream;
+}
+
+/* ======================================================
+   CLASS SYSTEM
+======================================================*/
+let classes = [];
+
+function addClass() {
+  const name = prompt("Enter class name:");
+  if (!name) return;
+
+  const emoji = prompt("Enter emoji (optional):");
+
+  classes.push({ name, emoji, images: [] });
+  renderClassList();
+}
+
+function renderClassList() {
+  const list = document.getElementById("classList");
+  list.innerHTML = "";
+
+  classes.forEach((cls, i) => {
+    const div = document.createElement("div");
+    div.className = "classBox";
+
+    div.innerHTML = `
+      <strong>${cls.emoji || ""} ${cls.name}</strong><br>
+      Photos: ${cls.images.length}<br><br>
+      <button onclick="clearClass(${i})">🗑 Clear Photos</button>
+      <button onclick="deleteClass(${i})">❌ Delete Class</button>
+      <button onclick="setCurrentClass(${i})">🎯 Select</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+let currentClass = -1;
+
+function setCurrentClass(i) {
+  currentClass = i;
+  alert("Selected class: " + classes[i].name);
+}
+
+function clearClass(i) {
+  classes[i].images = [];
+  renderClassList();
+}
+
+function deleteClass(i) {
+  classes.splice(i, 1);
+  renderClassList();
+}
+
+/* ======================================================
+   CAPTURE IMAGE
+======================================================*/
+function capture() {
+  if (currentClass < 0) {
+    alert("Select a class first!");
+    return;
+  }
+
+  const video = document.getElementById("video");
+  const canvas = document.createElement("canvas");
+
+  canvas.width = 224;
+  canvas.height = 224;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(video, 0, 0, 224, 224);
+
+  classes[currentClass].images.push(canvas.toDataURL());
+  renderClassList();
+}
+
+/* ======================================================
+   LOAD TEACHABLE MACHINE MODEL
+======================================================*/
+let tmModel;
+
+async function loadTMModel() {
+  const url = prompt("Paste Teachable Machine model URL:");
+  if (!url) return;
+
+  tmModel = await tf.loadLayersModel(url + "model.json");
+  alert("Model loaded!");
+}
+
+/* ======================================================
+   LIVE PREDICTION
+======================================================*/
+async function startPredict() {
+  if (!tmModel) {
+    alert("Load model first!");
+    return;
+  }
+
+  const video = document.getElementById("video");
+
+  async function step() {
+    const t = tf.browser.fromPixels(video)
+      .resizeBilinear([224, 224])
+      .div(255)
+      .expandDims();
+
+    const p = await tmModel.predict(t).data();
+    t.dispose();
+
+    const maxIndex = p.indexOf(Math.max(...p));
+    const percent = (p[maxIndex] * 100).toFixed(1);
+
+    const label = classes[maxIndex]
+      ? (classes[maxIndex].emoji || "") + " " + classes[maxIndex].name
+      : "Unknown";
+
+    document.getElementById("predictionLabel").innerText =
+      `Prediction: ${label} (${percent}%)`;
+
+    requestAnimationFrame(step);
+  }
+  step();
+}
+
+/* ======================================================
+   INIT
+======================================================*/
+autoDetectDevice();
+startCamera();
 </script>
+</body>
+</html>
