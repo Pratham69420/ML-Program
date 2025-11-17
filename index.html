@@ -20,6 +20,7 @@ body {font-family: Arial; margin:0; padding:0; background:#111; color:white;}
 #emojiPicker span{font-size:26px; padding:5px; cursor:pointer;}
 button {background:#444; color:white; border:none; border-radius:6px;}
 button:hover {background:#555;}
+input[type=file] {color:white;}
 </style>
 </head>
 <body>
@@ -33,6 +34,7 @@ button:hover {background:#555;}
 <button onclick="stopTesting()">⏹ Stop</button><br>
 <input type="file" id="uploadImages" accept="image/*" multiple>
 <button onclick="addUploadedImages()">Add Uploaded Images to Selected Class</button>
+<div id="uploadedTestImagesDiv"></div>
 <div id="predictions"></div>
 <br>
 <button onclick="saveModel()">💾 Save Model</button>
@@ -62,7 +64,6 @@ button:hover {background:#555;}
 <script>
 let video,stream,classes=[],currentClassIndex=-1,currentEmoji="",model=null,testing=false,liveInterval=null,captureInterval=null;
 
-/* CAMERA SETUP */
 async function setupCamera(){
 video=document.getElementById("video");
 let constraints={audio:false, video:{facingMode:"environment"}};
@@ -138,27 +139,35 @@ reader.readAsDataURL(files[i]);
 /* TRAIN MODEL */
 async function trainModel(){
 if(classes.length===0){alert("Add classes first"); return;}
-let totalImages=classes.reduce((a,b)=>a+b.images.length,0);
-if(totalImages===0){alert("Add images first"); return;}
-const xs=[],ys=[],labels=[];
-classes.forEach((cls,idx)=>{cls.images.forEach(imgData=>{
-const img=new Image(); img.src=imgData; img.onload=()=>{
+let allImages = [];
+classes.forEach(cls=>{allImages.push(...cls.images.map(img=>({img,cls:cls.name})))});
+if(allImages.length===0){alert("Add images first"); return;}
+const xs=[],ys=[],labels={}; let labelIdx=0;
+allImages.forEach((item)=>{
+if(labels[item.cls]===undefined) labels[item.cls]=labelIdx++;
+});
+let loadedCount=0;
+const totalImages=allImages.length;
+const progressDiv=document.getElementById("trainingProgress"); progressDiv.innerText="Loading images...";
+allImages.forEach((item,i)=>{
+const img=new Image(); img.src=item.img;
+img.onload=()=>{
 const tensor=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255);
-xs.push(tensor); ys.push(idx); labels[idx]=cls.name;
-if(xs.length===totalImages) startTraining(xs,ys,labels);
+xs.push(tensor); ys.push(labels[item.cls]); loadedCount++;
+if(loadedCount===totalImages) startTraining(xs,ys,Object.keys(labels));
 };
-});});
+});
 }
 
-async function startTraining(xsArray,ysArray,labels){
-const xs=tf.stack(xsArray); const ys=tf.oneHot(tf.tensor1d(ysArray,'int32'),labels.length);
+async function startTraining(xsArray,ysArray,labelNames){
+const xs=tf.stack(xsArray); const ys=tf.oneHot(tf.tensor1d(ysArray,'int32'),labelNames.length);
 model=tf.sequential();
 const mobilenet=await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v3_small_100_224/model.json');
 mobilenet.trainable=false;
 model.add(tf.layers.inputLayer({inputShape:[224,224,3]}));
 model.add(mobilenet);
 model.add(tf.layers.flatten());
-model.add(tf.layers.dense({units:labels.length,activation:'softmax'}));
+model.add(tf.layers.dense({units:labelNames.length,activation:'softmax'}));
 model.compile({optimizer:'adam',loss:'categoricalCrossentropy',metrics:['accuracy']});
 const progressDiv=document.getElementById("trainingProgress"); progressDiv.innerText="Training...";
 await model.fit(xs,ys,{epochs:5,callbacks:{onEpochEnd:(epoch,logs)=>{progressDiv.innerText=`Epoch ${epoch+1}/5 - Loss:${logs.loss.toFixed(3)} - Acc:${(logs.acc*100).toFixed(2)}%`;},onTrainEnd:()=>{progressDiv.innerText="Training complete!";}}});
@@ -166,7 +175,7 @@ xs.dispose(); ys.dispose(); alert("Model trained!");
 }
 
 /* SAVE / LOAD MODEL */
-async function saveModel(){if(!model){alert("Train first"); return;} await model.save('downloads://my_model'); alert("Model saved to your computer.");}
+async function saveModel(){if(!model){alert("Train first"); return;} await model.save('downloads://my_model'); alert("Model saved.");}
 async function loadModel(){
 const files=document.getElementById("loadModelFile").files; if(files.length===0){alert("Select model folder"); return;}
 model=await tf.loadLayersModel(tf.io.browserFiles(Array.from(files))); alert("Model loaded!");
@@ -187,6 +196,7 @@ function stopTesting(){testing=false; clearInterval(liveInterval);}
 /* SHOW PREDICTIONS */
 function showPredictions(values){
 const container=document.getElementById("predictions"); container.innerHTML="";
+const labelNames=classes.map(c=>c.name);
 values.forEach((v,i)=>{
 const cls=classes[i]; if(!cls) return;
 const bar=document.createElement("div"); bar.className="progressBarContainer";
