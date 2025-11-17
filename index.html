@@ -6,54 +6,31 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
 <style>
-body {
-  font-family: Arial, sans-serif;
-  margin:0; padding:0;
-  background:#111; color:white;
-}
+body {font-family: Arial; margin:0; padding:0; background:#111; color:white;}
 #header {text-align:center;padding:15px;font-size:22px;}
-#deviceSelectScreen {
-  display:flex; flex-direction:column;
-  justify-content:center; align-items:center;
-  height:100vh;
-}
-.deviceButton {
-  padding:20px; margin:12px;
-  font-size:22px; width:220px;
-  background:#333; border:none; border-radius:12px; cursor:pointer; color:white;
-}
-#mainUI {display:none; padding:10px;}
-#deviceModeLabel {text-align:center;margin-bottom:10px;}
-#container {display:flex;flex-wrap:wrap;}
-#webcamContainer {text-align:center; flex:1;}
+#container {display:flex; flex-wrap:wrap;}
+#webcamContainer {flex:1; text-align:center;}
 #video {border-radius:12px; width:100%; max-width:500px;}
-#captureBtn {margin:10px;padding:8px 16px;font-size:18px;}
-#classSidebar {flex:1; background:#222; padding:10px; border-radius:12px; margin-left:10px; max-width:300px;}
-.classItem {padding:10px; margin:6px 0; border-radius:8px; background:#333; cursor:pointer;}
+#captureBtn {margin:10px;padding:8px 16px;font-size:18px; cursor:pointer;}
+#classSidebar {flex:1; max-width:300px; background:#222; padding:10px; border-radius:12px; margin-left:10px;}
+.classItem {padding:10px; margin:6px 0; border-radius:8px; background:#333;}
 .classControls button {margin:2px;}
 .progressBarContainer {background:#333; height:20px; width:100%; border-radius:10px; margin-top:4px;}
 .progressBar {height:100%; border-radius:10px; background:#4caf50; width:0%;}
+#emojiPicker span{font-size:26px; padding:5px; cursor:pointer;}
 </style>
 </head>
 <body>
 
-<div id="deviceSelectScreen">
-<h1>Select Device</h1>
-<button class="deviceButton" onclick="launchApp('phone')">📱 Phone</button>
-<button class="deviceButton" onclick="launchApp('computer')">💻 Computer</button>
-</div>
-
-<div id="mainUI">
 <div id="header">Custom Dark Mode Teachable Machine</div>
-<div id="deviceModeLabel"></div>
-
 <div id="container">
 <div id="webcamContainer">
 <video id="video" autoplay playsinline></video><br>
-<button id="captureBtn">📸 Capture</button>
+<button id="captureBtn">📸 Capture Fast</button>
 <button onclick="startTesting()">▶ Live Test</button>
-<button onclick="stopTesting()">⏹ Stop</button>
-<input type="file" id="testImageUpload" accept="image/*">
+<button onclick="stopTesting()">⏹ Stop</button><br>
+<input type="file" id="uploadImages" accept="image/*" multiple>
+<button onclick="addUploadedImages()">Add Uploaded Images to Selected Class</button>
 <div id="predictions"></div>
 </div>
 
@@ -64,6 +41,7 @@ body {
 <button onclick="addClass()">Create Class</button>
 <div id="selectedEmoji"></div>
 <div id="emojiPicker" style="display:none;"></div>
+
 <h3>Classes</h3>
 <div id="classesList"></div>
 </div>
@@ -76,51 +54,39 @@ body {
 </div>
 
 <script>
-let deviceMode="",video=null,stream=null,classes=[],currentEmoji="",currentClassIndex=-1,model=null,testing=false,liveInterval=null,captureInterval=null;
+let video,stream,classes=[],currentClassIndex=-1,currentEmoji="",model=null,testing=false,liveInterval=null,captureInterval=null;
 
-/* DEVICE LAUNCH */
-async function launchApp(mode){
-deviceMode=mode;
-document.getElementById("deviceModeLabel").innerText="Device: "+(mode==="phone"?"📱 Phone":"💻 Computer");
-document.getElementById("deviceSelectScreen").style.display="none";
-document.getElementById("mainUI").style.display="block";
-await setupCamera(mode);
-}
-
-/* CAMERA SETUP */
-async function setupCamera(mode){
+async function setupCamera(){
 video=document.getElementById("video");
-let constraints={audio:false,video:{}};
-if(mode==="phone") constraints.video={facingMode:"environment"};
-else constraints.video={width:1280,height:720};
+let constraints={audio:false, video:{facingMode:"environment"}};
 stream=await navigator.mediaDevices.getUserMedia(constraints);
 video.srcObject=stream;
-return new Promise(res=>{video.onloadedmetadata=()=>res();});
+return new Promise(res=>video.onloadedmetadata=()=>res());
 }
+setupCamera();
 
-/* EMOJI PICKER */
+/* Emoji Picker */
 function openEmojiPicker(){
 const picker=document.getElementById("emojiPicker");
-picker.style.display="block";picker.innerHTML="";
+picker.style.display="block"; picker.innerHTML="";
 const emojis=["😀","😎","🤖","🚗","🚦","🏎️","🚴‍♂️","🐱","🐶","🌟","🔥","💧","🍎","⚡"];
 emojis.forEach(e=>{
-const span=document.createElement("span");
-span.innerText=e; span.style.fontSize="26px"; span.style.padding="5px"; span.style.cursor="pointer";
+const span=document.createElement("span"); span.innerText=e;
 span.onclick=()=>{currentEmoji=e; document.getElementById("selectedEmoji").innerText="Selected Emoji: "+e; picker.style.display="none";};
 picker.appendChild(span);
 });
 }
 
-/* ADD CLASS */
+/* Add Class */
 function addClass(){
 const name=document.getElementById("classNameInput").value.trim();
 if(!name){alert("Enter a class name"); return;}
 classes.push({name:name,emoji:currentEmoji,images:[],color:'#'+Math.floor(Math.random()*16777215).toString(16)});
-currentEmoji="";document.getElementById("classNameInput").value="";document.getElementById("selectedEmoji").innerText="";
+currentEmoji=""; document.getElementById("classNameInput").value=""; document.getElementById("selectedEmoji").innerText="";
 renderClasses();
 }
 
-/* RENDER CLASSES */
+/* Render Classes */
 function renderClasses(){
 const container=document.getElementById("classesList"); container.innerHTML="";
 classes.forEach((cls,idx)=>{
@@ -134,31 +100,39 @@ div.innerHTML=`<strong>${cls.emoji||""} ${cls.name}</strong> <br>Photos: ${cls.i
 container.appendChild(div);
 });
 }
-
-/* CLASS CONTROL */
 function selectClass(idx){currentClassIndex=idx; alert("Selected class: "+classes[idx].name);}
 function deleteClass(idx){classes.splice(idx,1); renderClasses();}
 function clearClass(idx){classes[idx].images=[]; renderClasses();}
 
-/* CAPTURE IMAGE */
-function captureImage(){if(currentClassIndex<0){alert("Select a class first"); return;}
+/* Webcam Capture Fast */
+const captureBtn=document.getElementById("captureBtn");
+captureBtn.addEventListener('mousedown',()=>{if(currentClassIndex<0)return; captureInterval=setInterval(captureImage,200);});
+captureBtn.addEventListener('mouseup',()=>{clearInterval(captureInterval);});
+captureBtn.addEventListener('mouseleave',()=>{clearInterval(captureInterval);});
+function captureImage(){
+if(currentClassIndex<0){alert("Select a class"); return;}
 const canvas=document.createElement("canvas"); canvas.width=224; canvas.height=224;
 canvas.getContext("2d").drawImage(video,0,0,224,224);
 classes[currentClassIndex].images.push(canvas.toDataURL());
 renderClasses();
 }
 
-/* FAST CAPTURE */
-const captureBtn=document.getElementById("captureBtn");
-captureBtn.addEventListener('mousedown',()=>{if(currentClassIndex<0) return; captureInterval=setInterval(captureImage,200);});
-captureBtn.addEventListener('mouseup',()=>{clearInterval(captureInterval);});
-captureBtn.addEventListener('mouseleave',()=>{clearInterval(captureInterval);});
+/* Add Uploaded Images */
+function addUploadedImages(){
+if(currentClassIndex<0){alert("Select a class"); return;}
+const files=document.getElementById("uploadImages").files;
+for(let i=0;i<files.length;i++){
+const reader=new FileReader();
+reader.onload=(e)=>{classes[currentClassIndex].images.push(e.target.result); renderClasses();}
+reader.readAsDataURL(files[i]);
+}
+}
 
-/* TRAIN MODEL */
+/* Train Model */
 async function trainModel(){
 if(classes.length===0){alert("Add classes first"); return;}
 let totalImages=classes.reduce((a,b)=>a+b.images.length,0);
-if(totalImages===0){alert("Capture images first"); return;}
+if(totalImages===0){alert("Add images first"); return;}
 const xs=[],ys=[],labels=[];
 classes.forEach((cls,idx)=>{cls.images.forEach(imgData=>{
 const img=new Image(); img.src=imgData; img.onload=()=>{
@@ -182,20 +156,19 @@ await model.fit(xs,ys,{epochs:5,callbacks:{onEpochEnd:(epoch,logs)=>{progressDiv
 xs.dispose(); ys.dispose(); alert("Model trained!");
 }
 
-/* LIVE TESTING */
+/* Live Testing */
 function startTesting(){
 if(!model){alert("Train a model first"); return;}
 testing=true; liveInterval=setInterval(async()=>{
 const tensor=tf.browser.fromPixels(video).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims();
 const prediction=model.predict(tensor); const values=prediction.dataSync();
-const maxIndex=values.indexOf(Math.max(...values));
 showPredictions(values); tensor.dispose(); prediction.dispose();
 },500);
 }
 
 function stopTesting(){testing=false; clearInterval(liveInterval);}
 
-/* SHOW PREDICTIONS */
+/* Show Predictions */
 function showPredictions(values){
 const container=document.getElementById("predictions"); container.innerHTML="";
 values.forEach((v,i)=>{
@@ -207,16 +180,6 @@ const text=document.createElement("div"); text.innerText=`${cls.emoji||""} ${cls
 container.appendChild(text); container.appendChild(bar);
 });
 }
-
-/* TEST IMAGE UPLOAD */
-document.getElementById("testImageUpload").addEventListener("change",async(e)=>{
-if(!model){alert("Train first"); return;}
-const file=e.target.files[0]; const reader=new FileReader();
-reader.onload=()=>{const img=new Image(); img.src=reader.result; img.onload=async()=>{
-const tensor=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims();
-const prediction=model.predict(tensor); const values=prediction.dataSync(); showPredictions(values); tensor.dispose(); prediction.dispose();
-};}; reader.readAsDataURL(file);
-});
 </script>
 </body>
 </html>
