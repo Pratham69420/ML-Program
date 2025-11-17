@@ -14,7 +14,7 @@ body {
   padding: 0;
 }
 
-/* Device selection screen */
+/* DEVICE SELECTION */
 #deviceSelectScreen {
   width: 100%;
   height: 100vh;
@@ -22,7 +22,6 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: #000;
 }
 
 .deviceButton {
@@ -37,9 +36,15 @@ body {
   cursor: pointer;
 }
 
+/* MAIN UI */
 #mainUI {
   display: none;
   padding: 20px;
+}
+
+#deviceModeLabel {
+  text-align: center;
+  margin-bottom: 20px;
 }
 
 /* Webcam */
@@ -50,10 +55,10 @@ body {
 #video {
   border-radius: 12px;
   width: 100%;
-  max-width: 420px;
+  max-width: 500px;
 }
 
-/* Class List Sidebar */
+/* Class Sidebar */
 #classSidebar {
   background: #222;
   padding: 15px;
@@ -104,7 +109,7 @@ body {
 
   <div id="webcamContainer">
     <video id="video" autoplay playsinline></video><br>
-    <button onclick="captureImage()">📸 Capture</button>
+    <button id="captureBtn">📸 Capture</button>
     <button onclick="startTesting()">▶ Live Test</button>
     <button onclick="stopTesting()">⏹ Stop</button>
   </div>
@@ -113,7 +118,6 @@ body {
   <input id="classNameInput" placeholder="Class name"><br><br>
   <button onclick="openEmojiPicker()">Pick Emoji</button>
   <button onclick="addClass()">Create Class</button>
-
   <div id="selectedEmoji"></div>
   <div id="emojiPicker"></div>
 
@@ -125,30 +129,21 @@ body {
   <h3>Training</h3>
   <button onclick="trainModel()">⚡ Train Model</button>
   <div id="trainingProgress"></div>
-
-  <br>
-
-  <button onclick="exportModel()">📤 Export Model</button>
-  <br><br>
-  <input type="file" id="tmZipInput" accept=".zip" onchange="loadTMZip(this.files)">
-  <p>Upload Teachable Machine ZIP</p>
-
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0/dist/tf.min.js"></script>
 
-<!-- fflate embedded -->
-<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
-
 <script>
-/* GLOBAL STATE */
 let deviceMode = "";
 let video = null;
 let stream = null;
 let classes = [];
 let currentEmoji = "";
+let currentClassIndex = -1;
 let model = null;
 let testing = false;
+let liveInterval = null;
+let captureInterval = null;
 
 /* DEVICE LAUNCH */
 async function launchApp(mode) {
@@ -166,16 +161,10 @@ async function launchApp(mode) {
 async function setupCamera(mode) {
   video = document.getElementById("video");
 
-  let constraints = {
-    audio: false,
-    video: {}
-  };
+  let constraints = { audio: false, video: {} };
 
-  if (mode === "phone") {
-    constraints.video = { facingMode: "environment" };
-  } else {
-    constraints.video = { width: 1280, height: 720 };
-  }
+  if (mode === "phone") constraints.video = { facingMode: "environment" };
+  else constraints.video = { width: 1280, height: 720 };
 
   stream = await navigator.mediaDevices.getUserMedia(constraints);
   video.srcObject = stream;
@@ -184,9 +173,8 @@ async function setupCamera(mode) {
     video.onloadedmetadata = () => res();
   });
 }
-/* ======================================================
-   CLASSES & EMOJIS
-======================================================*/
+
+/* EMOJI PICKER */
 function openEmojiPicker() {
   const picker = document.getElementById("emojiPicker");
   picker.style.display = "block";
@@ -205,6 +193,7 @@ function openEmojiPicker() {
   });
 }
 
+/* ADD CLASS */
 function addClass() {
   const nameInput = document.getElementById("classNameInput");
   const name = nameInput.value.trim();
@@ -216,6 +205,7 @@ function addClass() {
   renderClasses();
 }
 
+/* RENDER CLASSES */
 function renderClasses() {
   const container = document.getElementById("classSidebar");
   container.innerHTML = "";
@@ -233,47 +223,42 @@ function renderClasses() {
   });
 }
 
-let currentClassIndex = -1;
+/* CLASS CONTROL */
+function selectClass(idx) { currentClassIndex = idx; alert("Selected class: " + classes[idx].name); }
+function deleteClass(idx) { classes.splice(idx,1); renderClasses(); }
+function clearClass(idx) { classes[idx].images = []; renderClasses(); }
 
-function selectClass(idx) {
-  currentClassIndex = idx;
-  alert("Selected class: " + classes[idx].name);
-}
-
-function deleteClass(idx) {
-  classes.splice(idx,1);
-  renderClasses();
-}
-
-function clearClass(idx) {
-  classes[idx].images = [];
-  renderClasses();
-}
-
-/* ======================================================
-   IMAGE CAPTURE
-======================================================*/
+/* IMAGE CAPTURE */
 function captureImage() {
   if (currentClassIndex < 0) { alert("Select a class first"); return; }
   const canvas = document.createElement("canvas");
-  canvas.width = 224;
-  canvas.height = 224;
+  canvas.width = 224; canvas.height = 224;
   const ctx = canvas.getContext("2d");
   ctx.drawImage(video,0,0,224,224);
   const dataUrl = canvas.toDataURL();
   classes[currentClassIndex].images.push(dataUrl);
   renderClasses();
 }
-/* ======================================================
-   TRAINING CUSTOM MODEL
-======================================================*/
+
+/* FAST CAPTURE */
+const captureBtn = document.getElementById("captureBtn");
+captureBtn.addEventListener('mousedown', () => {
+  if (currentClassIndex < 0) return;
+  captureInterval = setInterval(captureImage, 200);
+});
+captureBtn.addEventListener('mouseup', () => { clearInterval(captureInterval); });
+captureBtn.addEventListener('mouseleave', () => { clearInterval(captureInterval); });
+
+/* TRAIN MODEL */
 async function trainModel() {
   if (classes.length === 0) { alert("Add classes first"); return; }
 
-  // Prepare datasets
   const xs = [];
   const ys = [];
   const labels = [];
+
+  let totalImages = classes.reduce((a,b)=>a+b.images.length,0);
+  if (totalImages===0){ alert("Capture some images first"); return; }
 
   classes.forEach((cls, idx) => {
     cls.images.forEach(imgData => {
@@ -284,9 +269,7 @@ async function trainModel() {
         xs.push(tensor);
         ys.push(idx);
         labels[idx] = cls.name;
-        if (xs.length === classes.reduce((a,b)=>a+b.images.length,0)) {
-          startTraining(xs, ys, labels);
-        }
+        if (xs.length === totalImages) startTraining(xs, ys, labels);
       };
     });
   });
@@ -325,13 +308,9 @@ async function startTraining(xsArray, ysArray, labels) {
   alert("Model trained!");
 }
 
-/* ======================================================
-   LIVE TESTING
-======================================================*/
-let liveInterval = null;
-
+/* LIVE TESTING */
 function startTesting() {
-  if (!model) { alert("Train or load a model first"); return; }
+  if (!model) { alert("Train a model first"); return; }
   testing = true;
   liveInterval = setInterval(async () => {
     const tensor = tf.browser.fromPixels(video).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims();
@@ -350,91 +329,6 @@ function stopTesting() {
   testing = false;
   clearInterval(liveInterval);
 }
-
-/* ======================================================
-   EXPORT / SAVE MODEL
-======================================================*/
-async function exportModel() {
-  if (!model) { alert("Train or load a model first"); return; }
-  await model.save('downloads://my-custom-model');
-  alert("Model exported!");
-}
-
-/* ======================================================
-   LOAD TEACHABLE MACHINE ZIP
-======================================================*/
-async function loadTMZip(files) {
-  if (files.length === 0) return;
-  const file = files[0];
-  const buffer = await file.arrayBuffer();
-  const unzip = fflate.unzipSync(new Uint8Array(buffer));
-  let modelJsonStr = null, weightsBin = null, metadataStr = null;
-  for (let key in unzip) {
-    if (key.endsWith("model.json")) modelJsonStr = new TextDecoder().decode(unzip[key]);
-    if (key.endsWith("weights.bin")) weightsBin = unzip[key];
-    if (key.endsWith("metadata.json")) metadataStr = new TextDecoder().decode(unzip[key]);
-  }
-  if (!modelJsonStr || !weightsBin) { alert("Invalid ZIP"); return; }
-  const modelBlob = new Blob([modelJsonStr], {type:'application/json'});
-  const modelUrl = URL.createObjectURL(modelBlob);
-  model = await tf.loadGraphModel(modelUrl);
-  alert("Teachable Machine model loaded!");
-}
-/* ======================================================
-   FAST CAPTURE MODE (HOLD BUTTON)
-======================================================*/
-let captureInterval = null;
-
-document.querySelector('button[onclick="captureImage()"]').addEventListener('mousedown', () => {
-  if (currentClassIndex < 0) return;
-  captureInterval = setInterval(captureImage, 200);
-});
-document.querySelector('button[onclick="captureImage()"]').addEventListener('mouseup', () => {
-  clearInterval(captureInterval);
-});
-document.querySelector('button[onclick="captureImage()"]').addEventListener('mouseleave', () => {
-  clearInterval(captureInterval);
-});
-
-/* ======================================================
-   MULTIPLE IMAGE UPLOAD PER CLASS
-======================================================*/
-function uploadImages(files) {
-  if (currentClassIndex < 0) { alert("Select a class first"); return; }
-  Array.from(files).forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      classes[currentClassIndex].images.push(e.target.result);
-      renderClasses();
-    };
-    reader.readAsDataURL(file);
-  });
-}
-
-/* Add a hidden input for upload */
-const uploadInput = document.createElement("input");
-uploadInput.type = "file";
-uploadInput.multiple = true;
-uploadInput.accept = "image/*";
-uploadInput.style.display = "none";
-uploadInput.onchange = () => uploadImages(uploadInput.files);
-document.body.appendChild(uploadInput);
-
-/* Optional: attach a button to trigger upload */
-const uploadBtn = document.createElement("button");
-uploadBtn.innerText = "📤 Upload Images";
-uploadBtn.onclick = () => uploadInput.click();
-document.getElementById("mainUI").appendChild(uploadBtn);
-
-/* ======================================================
-   EMOJI PICKER CUSTOMIZATION (Optional unlimited)
-======================================================*/
-function addCustomEmoji() {
-  const emoji = prompt("Enter an emoji (or leave blank for none):");
-  if (emoji) currentEmoji = emoji;
-}
-
-/* END OF FILE */
 </script>
 </body>
 </html>
