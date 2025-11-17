@@ -18,6 +18,8 @@ body {font-family: Arial; margin:0; padding:0; background:#111; color:white;}
 .progressBarContainer {background:#333; height:20px; width:100%; border-radius:10px; margin-top:4px;}
 .progressBar {height:100%; border-radius:10px; background:#4caf50; width:0%;}
 #emojiPicker span{font-size:26px; padding:5px; cursor:pointer;}
+button {background:#444; color:white; border:none; border-radius:6px;}
+button:hover {background:#555;}
 </style>
 </head>
 <body>
@@ -32,6 +34,10 @@ body {font-family: Arial; margin:0; padding:0; background:#111; color:white;}
 <input type="file" id="uploadImages" accept="image/*" multiple>
 <button onclick="addUploadedImages()">Add Uploaded Images to Selected Class</button>
 <div id="predictions"></div>
+<br>
+<button onclick="saveModel()">💾 Save Model</button>
+<input type="file" id="loadModelFile" webkitdirectory directory multiple>
+<button onclick="loadModel()">📂 Load Model</button>
 </div>
 
 <div id="classSidebar">
@@ -56,6 +62,7 @@ body {font-family: Arial; margin:0; padding:0; background:#111; color:white;}
 <script>
 let video,stream,classes=[],currentClassIndex=-1,currentEmoji="",model=null,testing=false,liveInterval=null,captureInterval=null;
 
+/* CAMERA SETUP */
 async function setupCamera(){
 video=document.getElementById("video");
 let constraints={audio:false, video:{facingMode:"environment"}};
@@ -65,7 +72,7 @@ return new Promise(res=>video.onloadedmetadata=()=>res());
 }
 setupCamera();
 
-/* Emoji Picker */
+/* EMOJI PICKER */
 function openEmojiPicker(){
 const picker=document.getElementById("emojiPicker");
 picker.style.display="block"; picker.innerHTML="";
@@ -77,7 +84,7 @@ picker.appendChild(span);
 });
 }
 
-/* Add Class */
+/* ADD CLASS */
 function addClass(){
 const name=document.getElementById("classNameInput").value.trim();
 if(!name){alert("Enter a class name"); return;}
@@ -86,7 +93,7 @@ currentEmoji=""; document.getElementById("classNameInput").value=""; document.ge
 renderClasses();
 }
 
-/* Render Classes */
+/* RENDER CLASSES */
 function renderClasses(){
 const container=document.getElementById("classesList"); container.innerHTML="";
 classes.forEach((cls,idx)=>{
@@ -104,7 +111,7 @@ function selectClass(idx){currentClassIndex=idx; alert("Selected class: "+classe
 function deleteClass(idx){classes.splice(idx,1); renderClasses();}
 function clearClass(idx){classes[idx].images=[]; renderClasses();}
 
-/* Webcam Capture Fast */
+/* WEBCAM CAPTURE FAST */
 const captureBtn=document.getElementById("captureBtn");
 captureBtn.addEventListener('mousedown',()=>{if(currentClassIndex<0)return; captureInterval=setInterval(captureImage,200);});
 captureBtn.addEventListener('mouseup',()=>{clearInterval(captureInterval);});
@@ -117,7 +124,7 @@ classes[currentClassIndex].images.push(canvas.toDataURL());
 renderClasses();
 }
 
-/* Add Uploaded Images */
+/* ADD UPLOADED IMAGES */
 function addUploadedImages(){
 if(currentClassIndex<0){alert("Select a class"); return;}
 const files=document.getElementById("uploadImages").files;
@@ -128,7 +135,7 @@ reader.readAsDataURL(files[i]);
 }
 }
 
-/* Train Model */
+/* TRAIN MODEL */
 async function trainModel(){
 if(classes.length===0){alert("Add classes first"); return;}
 let totalImages=classes.reduce((a,b)=>a+b.images.length,0);
@@ -147,8 +154,10 @@ async function startTraining(xsArray,ysArray,labels){
 const xs=tf.stack(xsArray); const ys=tf.oneHot(tf.tensor1d(ysArray,'int32'),labels.length);
 model=tf.sequential();
 const mobilenet=await tf.loadLayersModel('https://storage.googleapis.com/tfjs-models/tfjs/mobilenet_v3_small_100_224/model.json');
-mobilenet.trainable=false; model.add(tf.layers.inputLayer({inputShape:[224,224,3]}));
-model.add(mobilenet); model.add(tf.layers.flatten());
+mobilenet.trainable=false;
+model.add(tf.layers.inputLayer({inputShape:[224,224,3]}));
+model.add(mobilenet);
+model.add(tf.layers.flatten());
 model.add(tf.layers.dense({units:labels.length,activation:'softmax'}));
 model.compile({optimizer:'adam',loss:'categoricalCrossentropy',metrics:['accuracy']});
 const progressDiv=document.getElementById("trainingProgress"); progressDiv.innerText="Training...";
@@ -156,9 +165,16 @@ await model.fit(xs,ys,{epochs:5,callbacks:{onEpochEnd:(epoch,logs)=>{progressDiv
 xs.dispose(); ys.dispose(); alert("Model trained!");
 }
 
-/* Live Testing */
+/* SAVE / LOAD MODEL */
+async function saveModel(){if(!model){alert("Train first"); return;} await model.save('downloads://my_model'); alert("Model saved to your computer.");}
+async function loadModel(){
+const files=document.getElementById("loadModelFile").files; if(files.length===0){alert("Select model folder"); return;}
+model=await tf.loadLayersModel(tf.io.browserFiles(Array.from(files))); alert("Model loaded!");
+}
+
+/* LIVE TESTING */
 function startTesting(){
-if(!model){alert("Train a model first"); return;}
+if(!model){alert("Train or load a model first"); return;}
 testing=true; liveInterval=setInterval(async()=>{
 const tensor=tf.browser.fromPixels(video).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims();
 const prediction=model.predict(tensor); const values=prediction.dataSync();
@@ -168,7 +184,7 @@ showPredictions(values); tensor.dispose(); prediction.dispose();
 
 function stopTesting(){testing=false; clearInterval(liveInterval);}
 
-/* Show Predictions */
+/* SHOW PREDICTIONS */
 function showPredictions(values){
 const container=document.getElementById("predictions"); container.innerHTML="";
 values.forEach((v,i)=>{
