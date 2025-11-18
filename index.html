@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Custom Teachable Machine</title>
+<title>Custom Teachable Machine Optimized</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 <style>
@@ -38,7 +38,7 @@ body{margin:0;font-family:Arial;background:#111;color:white;}
 </div>
 
 <div id="main">
-<h1>Custom Teachable Machine</h1>
+<h1>Custom Teachable Machine Optimized</h1>
 <video id="videoPreview" autoplay playsinline></video>
 <canvas id="previewCanvas" style="display:none;"></canvas>
 
@@ -110,12 +110,13 @@ async function addExample(classId){
         await new Promise(r=>img.onload=r);
         classes[classId].images.push(img);classes[classId].count++;
         document.getElementById("count-"+classId).textContent="Images: "+classes[classId].count;
+        await tf.nextFrame(); // prevent freezing
     }};input.click();
 }
 function addExampleFromCamera(classId){
     const video=document.getElementById("videoPreview");
     const canvas=document.createElement("canvas");
-    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    canvas.width=224;canvas.height=224; // reduce size
     const ctx=canvas.getContext("2d");ctx.drawImage(video,0,0,canvas.width,canvas.height);
     const img=new Image();img.src=canvas.toDataURL("image/png");
     classes[classId].images.push(img);classes[classId].count++;
@@ -137,16 +138,19 @@ async function trainModel(){
             const tensor=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().expandDims(0);
             const embedding=net.infer(tensor,"conv_preds");
             EMBEDDINGS.push(embedding);LABELS.push(i);
+            tensor.dispose();await tf.nextFrame();
         }
+        document.getElementById("trainProgress").innerHTML=`Processing Class ${i+1}/${classes.length}`;
     }
     if(EMBEDDINGS.length===0){alert("Add some images first!");return;}
-    const xs=tf.concat(EMBEDDINGS);
-    const ys=tf.tensor1d(LABELS,"int32");
+    const xs=tf.concat(EMBEDDINGS);const ys=tf.tensor1d(LABELS,"int32");
     model=tf.sequential();
     model.add(tf.layers.dense({units:classes.length,activation:"softmax",inputShape:[1024]}));
     model.compile({optimizer:tf.train.adam(0.0005),loss:"sparseCategoricalCrossentropy",metrics:["accuracy"]});
     document.getElementById("trainProgress").innerHTML="Training...";
-    await model.fit(xs,ys,{epochs:20,callbacks:{onEpochEnd:(e,l)=>document.getElementById("trainProgress").innerHTML=`Epoch ${e+1}/20 — Accuracy: ${(l.acc*100).toFixed(1)}%`}});
+    await model.fit(xs,ys,{epochs:15,callbacks:{onEpochEnd:(e,l)=>document.getElementById("trainProgress").innerHTML=`Epoch ${e+1}/15 — Accuracy: ${(l.acc*100).toFixed(1)}%`}});
+    xs.dispose();ys.dispose();
+    EMBEDDINGS.forEach(t=>t.dispose());
     document.getElementById("trainProgress").innerHTML="✅ Training Complete!";
     startPredictionLoop();
 }
@@ -173,6 +177,7 @@ async function startPredictionLoop(){
             document.getElementById("bar-"+i).style.width=p;
             document.getElementById("percent-"+i).textContent=p;
         }
+        tensor.dispose();embedding.dispose();prediction.dispose();
         requestAnimationFrame(loop);
     }
     loop();
