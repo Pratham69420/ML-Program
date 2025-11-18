@@ -10,67 +10,18 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body {
-    margin:0;
-    background:#111;
-    color:white;
-    font-family:Arial,sans-serif;
-    overflow-x:hidden;
-}
-#sidebar {
-    position:fixed;
-    left:0;
-    top:0;
-    width:280px;
-    height:100vh;
-    background:#1a1a1a;
-    padding:20px;
-    overflow-y:auto;
-    border-right:2px solid #333;
-}
-.btn {
-    background:#3a3a3a;
-    border:none;
-    padding:12px;
-    width:100%;
-    border-radius:6px;
-    color:white;
-    margin-top:8px;
-    cursor:pointer;
-}
-.btn:hover {background:#555;}
-.class-box {
-    background:#222;
-    border:1px solid #555;
-    padding:12px;
-    border-radius:6px;
-    margin-top:10px;
-}
-#main {
-    margin-left:310px;
-    padding:20px;
-}
-#videoPreview {
-    width:340px;
-    border-radius:8px;
-    background:black;
-}
-#previewCanvas {display:none;}
-.predictionBar {
-    height:22px;
-    background:#444;
-    border-radius:5px;
-    margin-top:6px;
-    width:90%;
-    position:relative;
-}
-.predictionFill {
-    height:100%;
-    background:#4caf50;
-    border-radius:5px;
-}
-.predictionLabel {font-size:14px;margin-top:4px;}
-.upload-btn {background:#444;border-radius:10px;padding:8px 12px;color:white;cursor:pointer;margin-top:6px;font-size:14px;}
+body{margin:0;background:#111;color:white;font-family:Arial,sans-serif;overflow-x:hidden;}
+#sidebar{position:fixed;left:0;top:0;width:280px;height:100vh;background:#1a1a1a;padding:20px;overflow-y:auto;border-right:2px solid #333;}
+.btn{background:#3a3a3a;border:none;padding:12px;width:100%;border-radius:6px;color:white;margin-top:8px;cursor:pointer;}
+.btn:hover{background:#555;}
+.class-box{background:#222;border:1px solid #555;padding:12px;border-radius:6px;margin-top:10px;}
+#main{margin-left:310px;padding:20px;}
+#videoPreview{width:340px;border-radius:8px;background:black;}
+#previewCanvas{display:none;}
+.predictionBar{height:22px;background:#444;border-radius:5px;margin-top:6px;width:90%;position:relative;}
+.predictionFill{height:100%;background:#4caf50;border-radius:5px;}
+.predictionLabel{font-size:14px;margin-top:4px;}
+.upload-btn{background:#444;border-radius:10px;padding:8px 12px;color:white;cursor:pointer;margin-top:6px;font-size:14px;}
 </style>
 </head>
 <body>
@@ -85,6 +36,10 @@ body {
 <button class="btn" onclick="setDeviceMode('phone')">📱 Phone Mode</button>
 <button class="btn" onclick="setDeviceMode('computer')">💻 Computer Mode</button>
 <select id="cameraSelect" class="btn" onchange="switchCamera()"></select>
+
+<h2 style="margin-top:20px;">💾 Model</h2>
+<button class="btn" onclick="exportModel()">💾 Export Model</button>
+<button class="btn" onclick="importModel()">📂 Import Model</button>
 </div>
 
 <div id="main">
@@ -111,25 +66,16 @@ let model;
 let EMBEDDINGS=[]; 
 let LABELS=[];
 
-async function setDeviceMode(mode){
-    deviceMode=mode;
-    loadCameras();
-}
-
+// ------------------ CAMERA ------------------
+async function setDeviceMode(mode){deviceMode=mode;loadCameras();}
 async function loadCameras(){
     const devices=await navigator.mediaDevices.enumerateDevices();
     const cams=devices.filter(d=>d.kind==="videoinput");
     const sel=document.getElementById("cameraSelect");
     sel.innerHTML="";
-    cams.forEach(cam=>{
-        const option=document.createElement("option");
-        option.value=cam.deviceId;
-        option.textContent=cam.label||"Camera";
-        sel.appendChild(option);
-    });
+    cams.forEach(cam=>{const option=document.createElement("option");option.value=cam.deviceId;option.textContent=cam.label||"Camera";sel.appendChild(option);});
     if(cams.length>0){currentCameraId=cams[0].deviceId;startCamera();}
 }
-
 async function startCamera(){
     if(webcamStream){webcamStream.getTracks().forEach(t=>t.stop());}
     let constraints=deviceMode==="phone"?{video:{deviceId:currentCameraId?{exact:currentCameraId}:undefined,facingMode:{ideal:"environment"}}}:{video:{deviceId:currentCameraId?{exact:currentCameraId}:undefined}};
@@ -138,7 +84,7 @@ async function startCamera(){
 }
 function switchCamera(){currentCameraId=document.getElementById("cameraSelect").value;startCamera();}
 
-/* ------------------ CLASS SYSTEM ------------------ */
+// ------------------ CLASSES ------------------
 function addClass(){
     const classId=classes.length;
     let box=document.createElement("div");
@@ -148,39 +94,39 @@ function addClass(){
 <input id="name-${classId}" style="width:100%;padding:6px;margin-top:6px;background:#111;color:white;border:1px solid #555;" placeholder="e.g. Stop Sign">
 <label style="margin-top:6px;display:block;">Emoji (optional):</label>
 <input id="emoji-${classId}" style="width:100%;padding:6px;background:#111;color:white;border:1px solid #555;" placeholder="🚗">
-<button class="upload-btn" onclick="addExample(${classId})">📷 Add Images</button>
+<button class="upload-btn" onclick="addExample(${classId})">📂 Upload Photos</button>
+<button class="upload-btn" onclick="addExampleFromCamera(${classId})">📷 Capture Photo</button>
 <button class="btn" onclick="removeTrainingImages(${classId})">🗑 Remove Photos</button>
-<p id="count-${classId}" style="margin-top:6px;">Images: 0</p>
-`;
+<p id="count-${classId}" style="margin-top:6px;">Images: 0</p>`;
     document.getElementById("classList").appendChild(box);
     classes.push({name:"",emoji:"",images:[],count:0});
 }
 function clearAllClasses(){classes=[];document.getElementById("classList").innerHTML="";document.getElementById("predictionArea").innerHTML="";}
 function removeTrainingImages(id){classes[id].images=[];classes[id].count=0;document.getElementById("count-"+id).textContent="Images: 0";}
 
-/* ------------------ UPLOAD / CAPTURE ------------------ */
-async function captureImageFile(){
-    return new Promise(resolve=>{
-        const input=document.createElement("input");
-        input.type="file";input.accept="image/*";input.multiple=true;
-        input.onchange=()=>{resolve([...input.files]);};
-        input.click();
-    });
-}
+// ------------------ UPLOAD & CAMERA ------------------
 async function addExample(classId){
-    const files=await captureImageFile();
-    for(let file of files){
+    const input=document.createElement("input");
+    input.type="file";input.accept="image/*";input.multiple=true;
+    input.onchange=async ()=>{const files=[...input.files];for(const file of files){
         const url=URL.createObjectURL(file);
-        const img=new Image();
-        img.src=url;
+        const img=new Image();img.src=url;
         await new Promise(r=>img.onload=r);
-        classes[classId].images.push(img);
-        classes[classId].count++;
+        classes[classId].images.push(img);classes[classId].count++;
         document.getElementById("count-"+classId).textContent="Images: "+classes[classId].count;
-    }
+    }};input.click();
+}
+function addExampleFromCamera(classId){
+    const video=document.getElementById("videoPreview");
+    const canvas=document.createElement("canvas");
+    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+    const ctx=canvas.getContext("2d");ctx.drawImage(video,0,0,canvas.width,canvas.height);
+    const img=new Image();img.src=canvas.toDataURL("image/png");
+    classes[classId].images.push(img);classes[classId].count++;
+    document.getElementById("count-"+classId).textContent="Images: "+classes[classId].count;
 }
 
-/* ------------------ TRAIN MODEL ------------------ */
+// ------------------ TRAIN ------------------
 async function trainModel(){
     document.getElementById("trainProgress").innerHTML="Loading MobileNet...";
     net=await mobilenet.load();
@@ -189,8 +135,7 @@ async function trainModel(){
     for(let i=0;i<classes.length;i++){
         const nameBox=document.getElementById("name-"+i);
         const emojiBox=document.getElementById("emoji-"+i);
-        classes[i].name=nameBox.value||("Class "+i);
-        classes[i].emoji=emojiBox.value||"";
+        classes[i].name=nameBox.value||("Class "+i);classes[i].emoji=emojiBox.value||"";
         for(let img of classes[i].images){
             const tensor=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().expandDims(0);
             const embedding=net.infer(tensor,"conv_preds");
@@ -204,14 +149,12 @@ async function trainModel(){
     model.add(tf.layers.dense({units:classes.length,activation:"softmax",inputShape:[1024]}));
     model.compile({optimizer:tf.train.adam(0.0005),loss:"sparseCategoricalCrossentropy",metrics:["accuracy"]});
     document.getElementById("trainProgress").innerHTML="Training...";
-    await model.fit(xs,ys,{epochs:20,callbacks:{
-        onEpochEnd:(e,l)=>document.getElementById("trainProgress").innerHTML=`Epoch ${e+1}/20 — Accuracy: ${(l.acc*100).toFixed(1)}%`
-    }});
+    await model.fit(xs,ys,{epochs:20,callbacks:{onEpochEnd:(e,l)=>document.getElementById("trainProgress").innerHTML=`Epoch ${e+1}/20 — Accuracy: ${(l.acc*100).toFixed(1)}%`}});
     document.getElementById("trainProgress").innerHTML="✅ Training Complete!";
     startPredictionLoop();
 }
 
-/* ------------------ LIVE PREDICTION ------------------ */
+// ------------------ PREDICTION ------------------
 async function startPredictionLoop(){
     const video=document.getElementById("videoPreview");
     document.getElementById("predictionArea").innerHTML="";
@@ -237,6 +180,10 @@ async function startPredictionLoop(){
     }
     loop();
 }
+
+// ------------------ EXPORT / IMPORT ------------------
+async function exportModel(){if(!model){alert("Train model first!");return;}await model.save("downloads://my-ml-model");alert("Model exported!");}
+async function importModel(){const input=document.createElement("input");input.type="file";input.accept=".json";input.onchange=async e=>{const file=e.target.files[0];const url=URL.createObjectURL(file);model=await tf.loadLayersModel(url);alert("Model loaded!");};input.click();}
 </script>
 </body>
 </html>
