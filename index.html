@@ -2,44 +2,57 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 ML Science Fair</title>
+<title>Grade 7 Machine Learning Project</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+
 <style>
 body{
   margin:0;
   font-family:system-ui;
-  background:#0f172a;
+  background:#0b1220;
   color:white;
 }
-h1{
-  margin:20px;
-  font-size:28px;
+header{
+  padding:20px;
+  font-size:26px;
+  font-weight:600;
 }
-.container{
+.main{
   display:grid;
-  grid-template-columns:1fr 1fr;
+  grid-template-columns:380px 1fr;
   gap:20px;
   padding:20px;
 }
 .camera{
   background:#020617;
+  padding:16px;
   border-radius:16px;
-  padding:20px;
-  text-align:center;
 }
 video{
   width:100%;
   border-radius:12px;
 }
-.cards{
+.panel{
+  background:#020617;
+  padding:16px;
+  border-radius:16px;
+}
+.classes{
   display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
   gap:16px;
 }
 .card{
   background:#020617;
-  border-radius:16px;
-  padding:16px;
+  border-radius:14px;
+  padding:14px;
+}
+input{
+  width:100%;
+  margin-bottom:8px;
+  padding:8px;
+  border-radius:8px;
+  border:none;
 }
 button{
   width:100%;
@@ -48,108 +61,132 @@ button{
   border-radius:10px;
   background:#2563eb;
   color:white;
-  font-size:15px;
+  font-size:14px;
   cursor:pointer;
 }
 button:hover{ background:#1e40af }
 .count{
-  margin-top:6px;
   font-size:13px;
   opacity:.8;
+  margin-top:6px;
 }
 .actions{
-  margin:20px;
   display:flex;
   gap:12px;
+  margin-top:16px;
 }
 .results{
-  padding:20px;
-}
-.bar{
-  height:14px;
-  background:#22c55e;
-  border-radius:8px;
-  margin-top:6px;
+  margin-top:20px;
 }
 .label{
   font-size:14px;
   margin-top:10px;
+}
+.bar-bg{
+  background:#1e293b;
+  border-radius:8px;
+  overflow:hidden;
+}
+.bar{
+  height:14px;
+  background:#22c55e;
 }
 </style>
 </head>
 
 <body>
 
-<h1>Machine Learning Image Classifier 🤖</h1>
+<header>🤖 Machine Learning Image Classifier</header>
 
-<div class="container">
+<div class="main">
   <div class="camera">
     <video id="webcam" autoplay playsinline></video>
+    <div class="actions">
+      <button onclick="train()">Train Model</button>
+      <button onclick="startLive()">Live Test</button>
+    </div>
   </div>
 
-  <div class="cards" id="classCards"></div>
+  <div class="panel">
+    <h3>Classes</h3>
+    <div class="classes" id="classArea"></div>
+    <div class="results" id="results"></div>
+  </div>
 </div>
-
-<div class="actions">
-  <button onclick="train()">Train Model</button>
-  <button onclick="predict()">Live Test</button>
-</div>
-
-<div class="results" id="results"></div>
 
 <script>
-const classNames = ["Class A","Class B","Class C"]
-const samples = classNames.map(()=>[])
+const NUM_CLASSES = 3
+let samples = []
+let classNames = []
 let model
+let live = false
+
+for(let i=0;i<NUM_CLASSES;i++){
+  samples.push([])
+  classNames.push("Class "+(i+1))
+}
 
 async function startCam(){
-  const v = document.getElementById("webcam")
-  const s = await navigator.mediaDevices.getUserMedia({video:true})
-  v.srcObject = s
+  const stream = await navigator.mediaDevices.getUserMedia({video:true})
+  webcam.srcObject = stream
 }
 startCam()
 
-const cards = document.getElementById("classCards")
-classNames.forEach((name,i)=>{
-  cards.innerHTML += `
+const area = document.getElementById("classArea")
+for(let i=0;i<NUM_CLASSES;i++){
+  area.innerHTML += `
     <div class="card">
-      <h3>${name}</h3>
-      <button onclick="capture(${i})">📸 Capture</button>
-      <div class="count" id="c${i}">0 images</div>
+      <input placeholder="Class name"
+        onchange="classNames[${i}]=this.value || 'Class ${i+1}'">
+      <button onclick="capture(${i})">📸 Capture Image</button>
+      <div class="count" id="count${i}">0 images</div>
     </div>
   `
-})
+}
 
 function capture(i){
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(webcam,0,0,224,224)
   samples[i].push(c)
-  document.getElementById("c"+i).innerText =
+  document.getElementById("count"+i).innerText =
     samples[i].length+" images"
 }
 
 async function train(){
+  let xs=[], ys=[]
+  samples.forEach((arr,i)=>{
+    arr.forEach(img=>{
+      xs.push(tf.browser.fromPixels(img).div(255))
+      ys.push(tf.oneHot(i,NUM_CLASSES))
+    })
+  })
+  if(xs.length===0){ alert("Add images first"); return }
+
   model=tf.sequential({
     layers:[
       tf.layers.flatten({inputShape:[224,224,3]}),
       tf.layers.dense({units:64,activation:"relu"}),
-      tf.layers.dense({units:classNames.length,activation:"softmax"})
+      tf.layers.dense({units:NUM_CLASSES,activation:"softmax"})
     ]
   })
-  model.compile({optimizer:"adam",loss:"categoricalCrossentropy"})
-  const xs=[],ys=[]
-  samples.forEach((arr,i)=>{
-    arr.forEach(img=>{
-      xs.push(tf.browser.fromPixels(img).div(255))
-      ys.push(tf.oneHot(i,classNames.length))
-    })
+  model.compile({
+    optimizer:"adam",
+    loss:"categoricalCrossentropy",
+    metrics:["accuracy"]
   })
-  await model.fit(tf.stack(xs),tf.stack(ys),{epochs:12})
+  await model.fit(tf.stack(xs),tf.stack(ys),{epochs:15})
   alert("Training complete ✅")
 }
 
-async function predict(){
+function startLive(){
+  if(!model){ alert("Train first"); return }
+  live = true
+  predictLoop()
+}
+
+async function predictLoop(){
+  if(!live) return
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(webcam,0,0,224,224)
@@ -157,13 +194,16 @@ async function predict(){
   const p=model.predict(img).dataSync()
 
   const r=document.getElementById("results")
-  r.innerHTML="<h3>Prediction</h3>"
+  r.innerHTML="<h3>Live Prediction</h3>"
   p.forEach((v,i)=>{
     r.innerHTML+=`
       <div class="label">${classNames[i]} – ${(v*100).toFixed(1)}%</div>
-      <div class="bar" style="width:${v*100}%"></div>
+      <div class="bar-bg">
+        <div class="bar" style="width:${v*100}%"></div>
+      </div>
     `
   })
+  requestAnimationFrame(predictLoop)
 }
 </script>
 
