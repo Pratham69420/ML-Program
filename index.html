@@ -84,12 +84,14 @@ function render(){
 
         <button onclick="capture(${i})">📸 Capture</button>
 
-        <!-- Local / Google Drive upload -->
-        <input type="file" accept="image/*" multiple
-          onchange="upload(event,${i})">
+        <button onclick="document.getElementById('uploadInput${i}').click()">
+          📁 Upload from Computer / Google Drive
+        </button>
+        <input type="file" id="uploadInput${i}" accept="image/*" multiple style="display:none"
+               onchange="upload(event, ${i})">
 
         <button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
-        <button class="danger" onclick="wipe(${i})">🗑 Wipe Images</button>
+        <button class="danger" onclick="wipe(${i})">🗑 Wipe All</button>
         <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
 
         <div class="count" id="count${i}">0 / ${MAX_IMAGES}</div>
