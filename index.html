@@ -2,101 +2,166 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ML Science Fair</title>
+<title>Grade 7 ML Science Fair</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 <style>
-body { font-family: Arial; background:#111; color:white; text-align:center }
-video { border:2px solid white; margin:10px }
-button { margin:5px; padding:10px; font-size:16px }
-.bar { height:20px; background:#0f0; margin:4px }
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#0f172a;
+  color:white;
+}
+h1{
+  margin:20px;
+  font-size:28px;
+}
+.container{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:20px;
+  padding:20px;
+}
+.camera{
+  background:#020617;
+  border-radius:16px;
+  padding:20px;
+  text-align:center;
+}
+video{
+  width:100%;
+  border-radius:12px;
+}
+.cards{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+  gap:16px;
+}
+.card{
+  background:#020617;
+  border-radius:16px;
+  padding:16px;
+}
+button{
+  width:100%;
+  padding:10px;
+  border:none;
+  border-radius:10px;
+  background:#2563eb;
+  color:white;
+  font-size:15px;
+  cursor:pointer;
+}
+button:hover{ background:#1e40af }
+.count{
+  margin-top:6px;
+  font-size:13px;
+  opacity:.8;
+}
+.actions{
+  margin:20px;
+  display:flex;
+  gap:12px;
+}
+.results{
+  padding:20px;
+}
+.bar{
+  height:14px;
+  background:#22c55e;
+  border-radius:8px;
+  margin-top:6px;
+}
+.label{
+  font-size:14px;
+  margin-top:10px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>Grade 7 Machine Learning Project 🤖</h2>
+<h1>Machine Learning Image Classifier 🤖</h1>
 
-<video id="webcam" autoplay playsinline width="200" height="200"></video>
+<div class="container">
+  <div class="camera">
+    <video id="webcam" autoplay playsinline></video>
+  </div>
 
-<div id="classes"></div>
+  <div class="cards" id="classCards"></div>
+</div>
 
-<button onclick="train()">Train Model</button>
-<button onclick="predict()">Live Test</button>
+<div class="actions">
+  <button onclick="train()">Train Model</button>
+  <button onclick="predict()">Live Test</button>
+</div>
 
-<h3>Predictions</h3>
-<div id="results"></div>
+<div class="results" id="results"></div>
 
 <script>
-const NUM_CLASSES = 3
-const samples = [[], [], []]
-let model, webcam
+const classNames = ["Class A","Class B","Class C"]
+const samples = classNames.map(()=>[])
+let model
 
-async function setupCamera() {
-  webcam = document.getElementById("webcam")
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true })
-  webcam.srcObject = stream
+async function startCam(){
+  const v = document.getElementById("webcam")
+  const s = await navigator.mediaDevices.getUserMedia({video:true})
+  v.srcObject = s
 }
-setupCamera()
+startCam()
 
-function createUI() {
-  const div = document.getElementById("classes")
-  for (let i = 0; i < NUM_CLASSES; i++) {
-    div.innerHTML += `
-      <h3>Class ${i + 1}</h3>
-      <button onclick="capture(${i})">📸 Capture Image</button>
-      <span id="count${i}">0 images</span>
-    `
-  }
-}
-createUI()
+const cards = document.getElementById("classCards")
+classNames.forEach((name,i)=>{
+  cards.innerHTML += `
+    <div class="card">
+      <h3>${name}</h3>
+      <button onclick="capture(${i})">📸 Capture</button>
+      <div class="count" id="c${i}">0 images</div>
+    </div>
+  `
+})
 
-function capture(classIndex) {
-  const canvas = document.createElement("canvas")
-  canvas.width = 224
-  canvas.height = 224
-  const ctx = canvas.getContext("2d")
-  ctx.drawImage(webcam, 0, 0, 224, 224)
-  samples[classIndex].push(canvas)
-  document.getElementById("count"+classIndex).innerText =
-    samples[classIndex].length + " images"
+function capture(i){
+  const c=document.createElement("canvas")
+  c.width=224;c.height=224
+  c.getContext("2d").drawImage(webcam,0,0,224,224)
+  samples[i].push(c)
+  document.getElementById("c"+i).innerText =
+    samples[i].length+" images"
 }
 
-async function train() {
-  model = tf.sequential()
-  model.add(tf.layers.flatten({inputShape:[224,224,3]}))
-  model.add(tf.layers.dense({units:64, activation:"relu"}))
-  model.add(tf.layers.dense({units:NUM_CLASSES, activation:"softmax"}))
-  model.compile({optimizer:"adam", loss:"categoricalCrossentropy"})
-
-  const xs = []
-  const ys = []
-
-  for (let i = 0; i < NUM_CLASSES; i++) {
-    for (let img of samples[i]) {
-      xs.push(tf.browser.fromPixels(img).toFloat().div(255))
-      ys.push(tf.oneHot(i, NUM_CLASSES))
-    }
-  }
-
-  await model.fit(tf.stack(xs), tf.stack(ys), {epochs:10})
-  alert("Training Complete ✅")
+async function train(){
+  model=tf.sequential({
+    layers:[
+      tf.layers.flatten({inputShape:[224,224,3]}),
+      tf.layers.dense({units:64,activation:"relu"}),
+      tf.layers.dense({units:classNames.length,activation:"softmax"})
+    ]
+  })
+  model.compile({optimizer:"adam",loss:"categoricalCrossentropy"})
+  const xs=[],ys=[]
+  samples.forEach((arr,i)=>{
+    arr.forEach(img=>{
+      xs.push(tf.browser.fromPixels(img).div(255))
+      ys.push(tf.oneHot(i,classNames.length))
+    })
+  })
+  await model.fit(tf.stack(xs),tf.stack(ys),{epochs:12})
+  alert("Training complete ✅")
 }
 
-async function predict() {
-  const canvas = document.createElement("canvas")
-  canvas.width = 224
-  canvas.height = 224
-  canvas.getContext("2d").drawImage(webcam,0,0,224,224)
-  const img = tf.browser.fromPixels(canvas).toFloat().div(255).expandDims(0)
-  const preds = model.predict(img).dataSync()
+async function predict(){
+  const c=document.createElement("canvas")
+  c.width=224;c.height=224
+  c.getContext("2d").drawImage(webcam,0,0,224,224)
+  const img=tf.browser.fromPixels(c).div(255).expandDims(0)
+  const p=model.predict(img).dataSync()
 
-  const res = document.getElementById("results")
-  res.innerHTML = ""
-  preds.forEach((p,i)=>{
-    res.innerHTML += `
-      <div>Class ${i+1}: ${(p*100).toFixed(1)}%</div>
-      <div class="bar" style="width:${p*200}px"></div>
+  const r=document.getElementById("results")
+  r.innerHTML="<h3>Prediction</h3>"
+  p.forEach((v,i)=>{
+    r.innerHTML+=`
+      <div class="label">${classNames[i]} – ${(v*100).toFixed(1)}%</div>
+      <div class="bar" style="width:${v*100}%"></div>
     `
   })
 }
