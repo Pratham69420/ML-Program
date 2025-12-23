@@ -10,14 +10,14 @@
 
 <style>
 body{margin:0;font-family:Arial;background:#0f0f0f;color:white}
-#sidebar{position:fixed;left:0;top:0;width:280px;height:100vh;background:#1a1a1a;padding:20px;border-right:2px solid #333;overflow-y:auto}
-#main{margin-left:310px;padding:20px}
+#sidebar{position:fixed;left:0;top:0;width:260px;height:100vh;background:#1a1a1a;padding:15px;border-right:2px solid #333;overflow-y:auto}
+#main{margin-left:290px;padding:20px}
 .btn{width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#3a3a3a;color:white;cursor:pointer}
 .btn:hover{background:#555}
 .class-box{background:#222;border:1px solid #555;padding:10px;border-radius:6px;margin-top:10px}
 .small{font-size:13px;color:#ccc}
-video,img{width:340px;height:260px;border-radius:8px;background:black;object-fit:cover}
-.bar-bg{width:100%;height:20px;background:#333;border-radius:6px}
+video,img{width:320px;height:240px;border-radius:8px;background:black;object-fit:cover}
+.bar-bg{width:100%;height:18px;background:#333;border-radius:6px}
 .bar-fill{height:100%;width:0%;border-radius:6px;transition:.2s}
 .green{background:#00d26a}
 .yellow{background:#f5c542}
@@ -28,14 +28,14 @@ video,img{width:340px;height:260px;border-radius:8px;background:black;object-fit
 <body>
 <div id="sidebar">
 <h2>📦 Classes</h2>
-<button class="btn" onclick="addClass()">Add Class</button>
+<button class="btn" onclick="addClass()">➕ Add Class</button>
 <div id="classList"></div>
 
-<h2 style="margin-top:20px">🧪 Mode</h2>
+<h2 style="margin-top:15px">🧪 Mode</h2>
 <button class="btn" onclick="setMode('live')">Live Camera</button>
 <button class="btn" onclick="setMode('image')">Image Test</button>
 
-<h2 style="margin-top:20px">🚀 Train</h2>
+<h2 style="margin-top:15px">🚀 Train</h2>
 <button class="btn" onclick="trainModel()">Train Model</button>
 <p id="trainStatus" class="small"></p>
 
@@ -55,7 +55,11 @@ video,img{width:340px;height:260px;border-radius:8px;background:black;object-fit
 </div>
 
 <script>
-let classes=[], net, model, stream=null, mode="none"
+let classes=[]
+let net=null
+let model=null
+let stream=null
+let mode="none"
 
 function addClass(){
  const id=classes.length
@@ -75,7 +79,8 @@ function addImages(id,input){
   img.src=URL.createObjectURL(f)
   classes[id].images.push(img)
  }
- document.getElementById("count"+id).textContent="Images: "+classes[id].images.length
+ document.getElementById("count"+id).textContent=
+  "Images: "+classes[id].images.length
 }
 
 async function setMode(m){
@@ -93,15 +98,17 @@ async function setMode(m){
 }
 
 async function trainModel(){
- if(classes.length<2){alert("Need 2 classes");return}
- document.getElementById("trainStatus").textContent="Loading MobileNet..."
+ if(classes.length<2){alert("Add at least 2 classes");return}
+ document.getElementById("trainStatus").textContent="Loading model..."
  net=await mobilenet.load()
 
  let xs=[], ys=[]
  for(let i=0;i<classes.length;i++){
   classes[i].name=document.getElementById("name"+i).value||"Class "+i
   for(const img of classes[i].images){
-   const t=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
+   const t=tf.browser.fromPixels(img)
+    .resizeNearestNeighbor([224,224])
+    .toFloat().div(255).expandDims()
    xs.push(net.infer(t,"conv_preds"))
    ys.push(i)
    t.dispose()
@@ -112,14 +119,26 @@ async function trainModel(){
  const Y=tf.tensor1d(ys,"int32")
 
  model=tf.sequential()
- model.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}))
- model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy",metrics:["accuracy"]})
+ model.add(tf.layers.dense({
+  inputShape:[1024],
+  units:classes.length,
+  activation:"softmax"
+ }))
+ model.compile({
+  optimizer:"adam",
+  loss:"sparseCategoricalCrossentropy",
+  metrics:["accuracy"]
+ })
 
- await model.fit(X,Y,{epochs:10,callbacks:{
-  onEpochEnd:(e,l)=>{
-   document.getElementById("accuracy").textContent="Accuracy: "+(l.acc*100).toFixed(1)+"%"
+ await model.fit(X,Y,{
+  epochs:10,
+  callbacks:{
+   onEpochEnd:(e,l)=>{
+    document.getElementById("accuracy").textContent=
+     "Accuracy: "+(l.acc*100).toFixed(1)+"%"
+   }
   }
- }})
+ })
 
  xs.forEach(t=>t.dispose())
  X.dispose();Y.dispose()
@@ -148,7 +167,8 @@ async function predict(t){
   const percent=(v*100).toFixed(1)
   const bar=document.getElementById("bar"+i)
   bar.style.width=percent+"%"
-  bar.className="bar-fill "+(percent>70?"green":percent>40?"yellow":"red")
+  bar.className="bar-fill "+
+   (percent>70?"green":percent>40?"yellow":"red")
   document.getElementById("pct"+i).textContent=percent+"%"
  })
 
@@ -157,7 +177,9 @@ async function predict(t){
 
 async function loop(){
  if(!model||mode!=="live")return
- const t=tf.browser.fromPixels(video).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
+ const t=tf.browser.fromPixels(video)
+  .resizeNearestNeighbor([224,224])
+  .toFloat().div(255).expandDims()
  await predict(t)
  requestAnimationFrame(loop)
 }
@@ -168,7 +190,9 @@ async function predictImage(input){
  img.src=URL.createObjectURL(input.files[0])
  img.style.display="block"
  await img.decode()
- const t=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
+ const t=tf.browser.fromPixels(img)
+  .resizeNearestNeighbor([224,224])
+  .toFloat().div(255).expandDims()
  predict(t)
 }
 </script>
