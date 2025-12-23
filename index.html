@@ -13,14 +13,17 @@ header{padding:20px;font-size:26px;font-weight:600}
 video{width:100%;border-radius:12px}
 .classes{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
 .card{background:#020617;border:1px solid #1e293b;border-radius:14px;padding:14px}
-input,select{width:100%;padding:8px;border-radius:8px;border:none;margin-bottom:8px}
-button{width:100%;padding:10px;border:none;border-radius:10px;background:#2563eb;color:white;cursor:pointer;margin-top:6px}
+input{width:100%;padding:8px;border-radius:8px;border:none;margin-bottom:8px}
+button{width:100%;padding:8px;border:none;border-radius:10px;background:#2563eb;color:white;cursor:pointer;margin-top:6px;font-size:14px}
 button:hover{background:#1e40af}
+.small{background:#334155}
+.danger{background:#7f1d1d}
 .count{font-size:13px;opacity:.8;margin-top:6px}
-.actions{display:flex;gap:12px;margin-top:16px}
 .bar-bg{background:#1e293b;border-radius:8px;overflow:hidden}
 .bar{height:14px;background:#22c55e}
 .label{margin-top:10px;font-size:14px}
+.warn{color:#fbbf24;font-size:13px;margin-top:6px}
+.toggle{background:#0f172a}
 </style>
 </head>
 
@@ -32,17 +35,12 @@ button:hover{background:#1e40af}
   <div class="camera">
     <video id="webcam" autoplay playsinline></video>
 
-    <select id="classCount" onchange="resetClasses()">
-      <option value="2">2 Classes</option>
-      <option value="3" selected>3 Classes</option>
-      <option value="4">4 Classes</option>
-      <option value="5">5 Classes</option>
-    </select>
+    <button onclick="addClass()">➕ Add Class</button>
+    <button onclick="train()">🚀 Train Model</button>
 
-    <div class="actions">
-      <button onclick="train()">Train Model</button>
-      <button onclick="startLive()">Live Test</button>
-    </div>
+    <button class="toggle" onclick="startLive()">📹 Live Test</button>
+
+    <input type="file" accept="image/*" onchange="testImage(event)">
   </div>
 
   <div class="panel">
@@ -53,60 +51,88 @@ button:hover{background:#1e40af}
 </div>
 
 <script>
-let samples=[], classNames=[], model, live=false
+const MAX_IMAGES = 50
+let samples=[], classNames=[]
+let model, live=false
 
 async function startCam(){
-  const stream=await navigator.mediaDevices.getUserMedia({video:true})
-  webcam.srcObject=stream
+  const stream = await navigator.mediaDevices.getUserMedia({video:true})
+  webcam.srcObject = stream
 }
 startCam()
 
-function resetClasses(){
-  const n=parseInt(document.getElementById("classCount").value)
-  samples=[]; classNames=[]
+function addClass(){
+  samples.push([])
+  classNames.push("Class " + samples.length)
+  render()
+}
+
+function render(){
   const area=document.getElementById("classArea")
   area.innerHTML=""
-  for(let i=0;i<n;i++){
-    samples.push([])
-    classNames.push("Class "+(i+1))
+  samples.forEach((_,i)=>{
     area.innerHTML+=`
       <div class="card">
         <input placeholder="Class name"
-          onchange="classNames[${i}]=this.value || 'Class ${i+1}'">
-        <button onclick="capture(${i})">📸 Capture Image</button>
+          onchange="classNames[${i}]=this.value||'Class ${i+1}'">
+        <button onclick="capture(${i})">📸 Capture</button>
         <input type="file" accept="image/*" multiple
-          onchange="uploadImages(event,${i})">
-        <div class="count" id="count${i}">0 images</div>
+          onchange="upload(event,${i})">
+        <button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
+        <button class="danger" onclick="wipe(${i})">🗑 Wipe All</button>
+        <div class="count" id="count${i}">0 / ${MAX_IMAGES}</div>
+        <div class="warn" id="warn${i}"></div>
       </div>`
-  }
+  })
 }
-resetClasses()
+
+addClass()
+addClass()
 
 function capture(i){
+  if(samples[i].length>=MAX_IMAGES){warn(i);return}
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(webcam,0,0,224,224)
   samples[i].push(c)
-  updateCount(i)
+  update(i)
 }
 
-function uploadImages(e,i){
-  [...e.target.files].forEach(f=>{
+function upload(e,i){
+  for(const f of e.target.files){
+    if(samples[i].length>=MAX_IMAGES){warn(i);break}
     const img=new Image()
     img.onload=()=>{
       const c=document.createElement("canvas")
       c.width=224;c.height=224
       c.getContext("2d").drawImage(img,0,0,224,224)
       samples[i].push(c)
-      updateCount(i)
+      update(i)
     }
     img.src=URL.createObjectURL(f)
-  })
+  }
 }
 
-function updateCount(i){
-  document.getElementById("count"+i).innerText=
-    samples[i].length+" images"
+function deleteLast(i){
+  samples[i].pop()
+  update(i)
+}
+
+function wipe(i){
+  if(confirm("Delete all images?")){
+    samples[i]=[]
+    update(i)
+  }
+}
+
+function update(i){
+  document.getElementById("count"+i).innerText =
+    samples[i].length+" / "+MAX_IMAGES
+  document.getElementById("warn"+i).innerText=""
+}
+
+function warn(i){
+  document.getElementById("warn"+i).innerText="Image limit reached"
 }
 
 async function train(){
@@ -134,25 +160,36 @@ async function train(){
 function startLive(){
   if(!model){alert("Train first");return}
   live=true
-  predictLoop()
+  predictLive()
 }
 
-function predictLoop(){
+function predictLive(){
   if(!live)return
+  predictFrom(webcam)
+  requestAnimationFrame(predictLive)
+}
+
+function testImage(e){
+  if(!model){alert("Train first");return}
+  const img=new Image()
+  img.onload=()=>predictFrom(img)
+  img.src=URL.createObjectURL(e.target.files[0])
+}
+
+function predictFrom(source){
   const c=document.createElement("canvas")
   c.width=224;c.height=224
-  c.getContext("2d").drawImage(webcam,0,0,224,224)
+  c.getContext("2d").drawImage(source,0,0,224,224)
   const img=tf.browser.fromPixels(c).div(255).expandDims(0)
   const p=model.predict(img).dataSync()
 
   const r=document.getElementById("results")
-  r.innerHTML="<h3>Live Prediction</h3>"
+  r.innerHTML="<h3>Prediction</h3>"
   p.forEach((v,i)=>{
     r.innerHTML+=`
       <div class="label">${classNames[i]} – ${(v*100).toFixed(1)}%</div>
       <div class="bar-bg"><div class="bar" style="width:${v*100}%"></div></div>`
   })
-  requestAnimationFrame(predictLoop)
 }
 </script>
 
