@@ -23,7 +23,6 @@ button:hover{background:#1e40af}
 .bar{height:14px;background:#22c55e}
 .label{margin-top:10px;font-size:14px}
 .warn{color:#fbbf24;font-size:13px;margin-top:6px}
-.toggle{background:#0f172a}
 </style>
 </head>
 
@@ -37,9 +36,9 @@ button:hover{background:#1e40af}
 
     <button onclick="addClass()">➕ Add Class</button>
     <button onclick="train()">🚀 Train Model</button>
+    <button onclick="startLive()">📹 Live Test</button>
 
-    <button class="toggle" onclick="startLive()">📹 Live Test</button>
-
+    <!-- Image test -->
     <input type="file" accept="image/*" onchange="testImage(event)">
   </div>
 
@@ -67,6 +66,13 @@ function addClass(){
   render()
 }
 
+function deleteClass(i){
+  if(!confirm("Delete this class and all its images?")) return
+  samples.splice(i,1)
+  classNames.splice(i,1)
+  render()
+}
+
 function render(){
   const area=document.getElementById("classArea")
   area.innerHTML=""
@@ -75,11 +81,17 @@ function render(){
       <div class="card">
         <input placeholder="Class name"
           onchange="classNames[${i}]=this.value||'Class ${i+1}'">
+
         <button onclick="capture(${i})">📸 Capture</button>
+
+        <!-- Local / Google Drive upload -->
         <input type="file" accept="image/*" multiple
           onchange="upload(event,${i})">
+
         <button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
-        <button class="danger" onclick="wipe(${i})">🗑 Wipe All</button>
+        <button class="danger" onclick="wipe(${i})">🗑 Wipe Images</button>
+        <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
+
         <div class="count" id="count${i}">0 / ${MAX_IMAGES}</div>
         <div class="warn" id="warn${i}"></div>
       </div>`
@@ -119,7 +131,7 @@ function deleteLast(i){
 }
 
 function wipe(i){
-  if(confirm("Delete all images?")){
+  if(confirm("Delete all images for this class?")){
     samples[i]=[]
     update(i)
   }
@@ -160,13 +172,13 @@ async function train(){
 function startLive(){
   if(!model){alert("Train first");return}
   live=true
-  predictLive()
+  liveLoop()
 }
 
-function predictLive(){
+function liveLoop(){
   if(!live)return
   predictFrom(webcam)
-  requestAnimationFrame(predictLive)
+  requestAnimationFrame(liveLoop)
 }
 
 function testImage(e){
