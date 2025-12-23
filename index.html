@@ -6,91 +6,21 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#0b1220;
-  color:white;
-}
-header{
-  padding:20px;
-  font-size:26px;
-  font-weight:600;
-}
-.main{
-  display:grid;
-  grid-template-columns:380px 1fr;
-  gap:20px;
-  padding:20px;
-}
-.camera{
-  background:#020617;
-  padding:16px;
-  border-radius:16px;
-}
-video{
-  width:100%;
-  border-radius:12px;
-}
-.panel{
-  background:#020617;
-  padding:16px;
-  border-radius:16px;
-}
-.classes{
-  display:grid;
-  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-  gap:16px;
-}
-.card{
-  background:#020617;
-  border-radius:14px;
-  padding:14px;
-}
-input{
-  width:100%;
-  margin-bottom:8px;
-  padding:8px;
-  border-radius:8px;
-  border:none;
-}
-button{
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  background:#2563eb;
-  color:white;
-  font-size:14px;
-  cursor:pointer;
-}
-button:hover{ background:#1e40af }
-.count{
-  font-size:13px;
-  opacity:.8;
-  margin-top:6px;
-}
-.actions{
-  display:flex;
-  gap:12px;
-  margin-top:16px;
-}
-.results{
-  margin-top:20px;
-}
-.label{
-  font-size:14px;
-  margin-top:10px;
-}
-.bar-bg{
-  background:#1e293b;
-  border-radius:8px;
-  overflow:hidden;
-}
-.bar{
-  height:14px;
-  background:#22c55e;
-}
+body{margin:0;font-family:system-ui;background:#0b1220;color:white}
+header{padding:20px;font-size:26px;font-weight:600}
+.main{display:grid;grid-template-columns:380px 1fr;gap:20px;padding:20px}
+.camera,.panel{background:#020617;padding:16px;border-radius:16px}
+video{width:100%;border-radius:12px}
+.classes{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
+.card{background:#020617;border:1px solid #1e293b;border-radius:14px;padding:14px}
+input,select{width:100%;padding:8px;border-radius:8px;border:none;margin-bottom:8px}
+button{width:100%;padding:10px;border:none;border-radius:10px;background:#2563eb;color:white;cursor:pointer;margin-top:6px}
+button:hover{background:#1e40af}
+.count{font-size:13px;opacity:.8;margin-top:6px}
+.actions{display:flex;gap:12px;margin-top:16px}
+.bar-bg{background:#1e293b;border-radius:8px;overflow:hidden}
+.bar{height:14px;background:#22c55e}
+.label{margin-top:10px;font-size:14px}
 </style>
 </head>
 
@@ -101,6 +31,14 @@ button:hover{ background:#1e40af }
 <div class="main">
   <div class="camera">
     <video id="webcam" autoplay playsinline></video>
+
+    <select id="classCount" onchange="resetClasses()">
+      <option value="2">2 Classes</option>
+      <option value="3" selected>3 Classes</option>
+      <option value="4">4 Classes</option>
+      <option value="5">5 Classes</option>
+    </select>
+
     <div class="actions">
       <button onclick="train()">Train Model</button>
       <button onclick="startLive()">Live Test</button>
@@ -110,46 +48,64 @@ button:hover{ background:#1e40af }
   <div class="panel">
     <h3>Classes</h3>
     <div class="classes" id="classArea"></div>
-    <div class="results" id="results"></div>
+    <div id="results"></div>
   </div>
 </div>
 
 <script>
-const NUM_CLASSES = 3
-let samples = []
-let classNames = []
-let model
-let live = false
-
-for(let i=0;i<NUM_CLASSES;i++){
-  samples.push([])
-  classNames.push("Class "+(i+1))
-}
+let samples=[], classNames=[], model, live=false
 
 async function startCam(){
-  const stream = await navigator.mediaDevices.getUserMedia({video:true})
-  webcam.srcObject = stream
+  const stream=await navigator.mediaDevices.getUserMedia({video:true})
+  webcam.srcObject=stream
 }
 startCam()
 
-const area = document.getElementById("classArea")
-for(let i=0;i<NUM_CLASSES;i++){
-  area.innerHTML += `
-    <div class="card">
-      <input placeholder="Class name"
-        onchange="classNames[${i}]=this.value || 'Class ${i+1}'">
-      <button onclick="capture(${i})">📸 Capture Image</button>
-      <div class="count" id="count${i}">0 images</div>
-    </div>
-  `
+function resetClasses(){
+  const n=parseInt(document.getElementById("classCount").value)
+  samples=[]; classNames=[]
+  const area=document.getElementById("classArea")
+  area.innerHTML=""
+  for(let i=0;i<n;i++){
+    samples.push([])
+    classNames.push("Class "+(i+1))
+    area.innerHTML+=`
+      <div class="card">
+        <input placeholder="Class name"
+          onchange="classNames[${i}]=this.value || 'Class ${i+1}'">
+        <button onclick="capture(${i})">📸 Capture Image</button>
+        <input type="file" accept="image/*" multiple
+          onchange="uploadImages(event,${i})">
+        <div class="count" id="count${i}">0 images</div>
+      </div>`
+  }
 }
+resetClasses()
 
 function capture(i){
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(webcam,0,0,224,224)
   samples[i].push(c)
-  document.getElementById("count"+i).innerText =
+  updateCount(i)
+}
+
+function uploadImages(e,i){
+  [...e.target.files].forEach(f=>{
+    const img=new Image()
+    img.onload=()=>{
+      const c=document.createElement("canvas")
+      c.width=224;c.height=224
+      c.getContext("2d").drawImage(img,0,0,224,224)
+      samples[i].push(c)
+      updateCount(i)
+    }
+    img.src=URL.createObjectURL(f)
+  })
+}
+
+function updateCount(i){
+  document.getElementById("count"+i).innerText=
     samples[i].length+" images"
 }
 
@@ -158,35 +114,31 @@ async function train(){
   samples.forEach((arr,i)=>{
     arr.forEach(img=>{
       xs.push(tf.browser.fromPixels(img).div(255))
-      ys.push(tf.oneHot(i,NUM_CLASSES))
+      ys.push(tf.oneHot(i,samples.length))
     })
   })
-  if(xs.length===0){ alert("Add images first"); return }
+  if(xs.length===0){alert("Add images first");return}
 
   model=tf.sequential({
     layers:[
       tf.layers.flatten({inputShape:[224,224,3]}),
       tf.layers.dense({units:64,activation:"relu"}),
-      tf.layers.dense({units:NUM_CLASSES,activation:"softmax"})
+      tf.layers.dense({units:samples.length,activation:"softmax"})
     ]
   })
-  model.compile({
-    optimizer:"adam",
-    loss:"categoricalCrossentropy",
-    metrics:["accuracy"]
-  })
+  model.compile({optimizer:"adam",loss:"categoricalCrossentropy"})
   await model.fit(tf.stack(xs),tf.stack(ys),{epochs:15})
   alert("Training complete ✅")
 }
 
 function startLive(){
-  if(!model){ alert("Train first"); return }
-  live = true
+  if(!model){alert("Train first");return}
+  live=true
   predictLoop()
 }
 
-async function predictLoop(){
-  if(!live) return
+function predictLoop(){
+  if(!live)return
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(webcam,0,0,224,224)
@@ -198,10 +150,7 @@ async function predictLoop(){
   p.forEach((v,i)=>{
     r.innerHTML+=`
       <div class="label">${classNames[i]} – ${(v*100).toFixed(1)}%</div>
-      <div class="bar-bg">
-        <div class="bar" style="width:${v*100}%"></div>
-      </div>
-    `
+      <div class="bar-bg"><div class="bar" style="width:${v*100}%"></div></div>`
   })
   requestAnimationFrame(predictLoop)
 }
