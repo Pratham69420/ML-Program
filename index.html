@@ -32,14 +32,19 @@ video,img{width:320px;height:240px;border-radius:8px;background:black;object-fit
 <div id="classList"></div>
 
 <h2 style="margin-top:15px">🧪 Mode</h2>
-<button class="btn" onclick="setMode('live')">Live Camera</button>
-<button class="btn" onclick="setMode('image')">Image Test</button>
+<button class="btn" onclick="setMode('live')">🔴 Live Camera</button>
+<button class="btn" onclick="setMode('image')">🖼 Image Test</button>
+<button class="btn" onclick="captureFromCamera()">📸 Capture Image</button>
 
 <h2 style="margin-top:15px">🚀 Train</h2>
 <button class="btn" onclick="trainModel()">Train Model</button>
 <p id="trainStatus" class="small"></p>
 
-<input type="file" accept="image/*" class="btn" onchange="predictImage(this)">
+<h2 style="margin-top:15px">🖼 Image Test</h2>
+<label class="btn">
+ Upload Image
+ <input type="file" accept="image/*" hidden onchange="predictImage(this)">
+</label>
 </div>
 
 <div id="main">
@@ -79,15 +84,14 @@ function addImages(id,input){
   img.src=URL.createObjectURL(f)
   classes[id].images.push(img)
  }
- document.getElementById("count"+id).textContent=
-  "Images: "+classes[id].images.length
+ document.getElementById("count"+id).textContent="Images: "+classes[id].images.length
 }
 
 async function setMode(m){
  mode=m
  if(m==="live"){
-  document.getElementById("imgTest").style.display="none"
-  document.getElementById("video").style.display="block"
+  imgTest.style.display="none"
+  video.style.display="block"
   stream=await navigator.mediaDevices.getUserMedia({video:true})
   video.srcObject=stream
   loop()
@@ -99,16 +103,14 @@ async function setMode(m){
 
 async function trainModel(){
  if(classes.length<2){alert("Add at least 2 classes");return}
- document.getElementById("trainStatus").textContent="Loading model..."
+ trainStatus.textContent="Loading MobileNet..."
  net=await mobilenet.load()
 
  let xs=[], ys=[]
  for(let i=0;i<classes.length;i++){
   classes[i].name=document.getElementById("name"+i).value||"Class "+i
   for(const img of classes[i].images){
-   const t=tf.browser.fromPixels(img)
-    .resizeNearestNeighbor([224,224])
-    .toFloat().div(255).expandDims()
+   const t=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
    xs.push(net.infer(t,"conv_preds"))
    ys.push(i)
    t.dispose()
@@ -119,39 +121,27 @@ async function trainModel(){
  const Y=tf.tensor1d(ys,"int32")
 
  model=tf.sequential()
- model.add(tf.layers.dense({
-  inputShape:[1024],
-  units:classes.length,
-  activation:"softmax"
- }))
- model.compile({
-  optimizer:"adam",
-  loss:"sparseCategoricalCrossentropy",
-  metrics:["accuracy"]
- })
+ model.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}))
+ model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy",metrics:["accuracy"]})
 
  await model.fit(X,Y,{
   epochs:10,
-  callbacks:{
-   onEpochEnd:(e,l)=>{
-    document.getElementById("accuracy").textContent=
-     "Accuracy: "+(l.acc*100).toFixed(1)+"%"
-   }
-  }
+  callbacks:{onEpochEnd:(e,l)=>{
+   accuracy.textContent="Accuracy: "+(l.acc*100).toFixed(1)+"%"
+  }}
  })
 
  xs.forEach(t=>t.dispose())
  X.dispose();Y.dispose()
 
  setupBars()
- document.getElementById("trainStatus").textContent="Training complete"
+ trainStatus.textContent="Training complete"
 }
 
 function setupBars(){
- const area=document.getElementById("predictionArea")
- area.innerHTML=""
+ predictionArea.innerHTML=""
  classes.forEach((c,i)=>{
-  area.innerHTML+=`
+  predictionArea.innerHTML+=`
   <strong>${c.name}</strong>
   <div class="bar-bg"><div id="bar${i}" class="bar-fill"></div></div>
   <p id="pct${i}" class="small"></p>`
@@ -167,8 +157,7 @@ async function predict(t){
   const percent=(v*100).toFixed(1)
   const bar=document.getElementById("bar"+i)
   bar.style.width=percent+"%"
-  bar.className="bar-fill "+
-   (percent>70?"green":percent>40?"yellow":"red")
+  bar.className="bar-fill "+(percent>70?"green":percent>40?"yellow":"red")
   document.getElementById("pct"+i).textContent=percent+"%"
  })
 
@@ -177,22 +166,29 @@ async function predict(t){
 
 async function loop(){
  if(!model||mode!=="live")return
- const t=tf.browser.fromPixels(video)
-  .resizeNearestNeighbor([224,224])
-  .toFloat().div(255).expandDims()
+ const t=tf.browser.fromPixels(video).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
  await predict(t)
  requestAnimationFrame(loop)
 }
 
 async function predictImage(input){
  if(!model)return
- const img=document.getElementById("imgTest")
- img.src=URL.createObjectURL(input.files[0])
- img.style.display="block"
- await img.decode()
- const t=tf.browser.fromPixels(img)
-  .resizeNearestNeighbor([224,224])
-  .toFloat().div(255).expandDims()
+ imgTest.src=URL.createObjectURL(input.files[0])
+ imgTest.style.display="block"
+ await imgTest.decode()
+ const t=tf.browser.fromPixels(imgTest).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
+ predict(t)
+}
+
+function captureFromCamera(){
+ if(!stream){alert("Start Live Camera first");return}
+ const canvas=document.createElement("canvas")
+ canvas.width=224
+ canvas.height=224
+ canvas.getContext("2d").drawImage(video,0,0,224,224)
+ imgTest.src=canvas.toDataURL()
+ imgTest.style.display="block"
+ const t=tf.browser.fromPixels(imgTest).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
  predict(t)
 }
 </script>
