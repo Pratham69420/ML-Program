@@ -2,195 +2,105 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 ML Science Fair</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-
+<title>ML Science Fair</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
 <style>
-body{margin:0;font-family:Arial;background:#0f0f0f;color:white}
-#sidebar{position:fixed;left:0;top:0;width:260px;height:100vh;background:#1a1a1a;padding:15px;border-right:2px solid #333;overflow-y:auto}
-#main{margin-left:290px;padding:20px}
-.btn{width:100%;padding:10px;margin-top:6px;border:none;border-radius:6px;background:#3a3a3a;color:white;cursor:pointer}
-.btn:hover{background:#555}
-.class-box{background:#222;border:1px solid #555;padding:10px;border-radius:6px;margin-top:10px}
-.small{font-size:13px;color:#ccc}
-video,img{width:320px;height:240px;border-radius:8px;background:black;object-fit:cover}
-.bar-bg{width:100%;height:18px;background:#333;border-radius:6px}
-.bar-fill{height:100%;width:0%;border-radius:6px;transition:.2s}
-.green{background:#00d26a}
-.yellow{background:#f5c542}
-.red{background:#ff4d4d}
+body { font-family: Arial; background:#111; color:white; text-align:center }
+video { border:2px solid white; margin:10px }
+button { margin:5px; padding:10px; font-size:16px }
+.bar { height:20px; background:#0f0; margin:4px }
 </style>
 </head>
 
 <body>
-<div id="sidebar">
-<h2>📦 Classes</h2>
-<button class="btn" onclick="addClass()">➕ Add Class</button>
-<div id="classList"></div>
 
-<h2 style="margin-top:15px">🧪 Mode</h2>
-<button class="btn" onclick="setMode('live')">🔴 Live Camera</button>
-<button class="btn" onclick="setMode('image')">🖼 Image Test</button>
-<button class="btn" onclick="captureFromCamera()">📸 Capture Image</button>
+<h2>Grade 7 Machine Learning Project 🤖</h2>
 
-<h2 style="margin-top:15px">🚀 Train</h2>
-<button class="btn" onclick="trainModel()">Train Model</button>
-<p id="trainStatus" class="small"></p>
+<video id="webcam" autoplay playsinline width="200" height="200"></video>
 
-<h2 style="margin-top:15px">🖼 Image Test</h2>
-<label class="btn">
- Upload Image
- <input type="file" accept="image/*" hidden onchange="predictImage(this)">
-</label>
-</div>
+<div id="classes"></div>
 
-<div id="main">
-<h1>Machine Learning Image Classifier</h1>
+<button onclick="train()">Train Model</button>
+<button onclick="predict()">Live Test</button>
 
-<video id="video" autoplay playsinline></video>
-<img id="imgTest" style="display:none">
-
-<h2>Predictions</h2>
-<div id="predictionArea"></div>
-
-<h3 id="accuracy">Accuracy: --%</h3>
-</div>
+<h3>Predictions</h3>
+<div id="results"></div>
 
 <script>
-let classes=[]
-let net=null
-let model=null
-let stream=null
-let mode="none"
+const NUM_CLASSES = 3
+const samples = [[], [], []]
+let model, webcam
 
-function addClass(){
- const id=classes.length
- const box=document.createElement("div")
- box.className="class-box"
- box.innerHTML=`
- <input id="name${id}" class="btn" placeholder="Class name">
- <input type="file" multiple accept="image/*" class="btn" onchange="addImages(${id},this)">
- <p id="count${id}" class="small">Images: 0</p>`
- document.getElementById("classList").appendChild(box)
- classes.push({images:[],name:""})
+async function setupCamera() {
+  webcam = document.getElementById("webcam")
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true })
+  webcam.srcObject = stream
 }
+setupCamera()
 
-function addImages(id,input){
- for(const f of input.files){
-  const img=new Image()
-  img.src=URL.createObjectURL(f)
-  classes[id].images.push(img)
- }
- document.getElementById("count"+id).textContent="Images: "+classes[id].images.length
-}
-
-async function setMode(m){
- mode=m
- if(m==="live"){
-  imgTest.style.display="none"
-  video.style.display="block"
-  stream=await navigator.mediaDevices.getUserMedia({video:true})
-  video.srcObject=stream
-  loop()
- }else{
-  if(stream)stream.getTracks().forEach(t=>t.stop())
-  video.style.display="none"
- }
-}
-
-async function trainModel(){
- if(classes.length<2){alert("Add at least 2 classes");return}
- trainStatus.textContent="Loading MobileNet..."
- net=await mobilenet.load()
-
- let xs=[], ys=[]
- for(let i=0;i<classes.length;i++){
-  classes[i].name=document.getElementById("name"+i).value||"Class "+i
-  for(const img of classes[i].images){
-   const t=tf.browser.fromPixels(img).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
-   xs.push(net.infer(t,"conv_preds"))
-   ys.push(i)
-   t.dispose()
+function createUI() {
+  const div = document.getElementById("classes")
+  for (let i = 0; i < NUM_CLASSES; i++) {
+    div.innerHTML += `
+      <h3>Class ${i + 1}</h3>
+      <button onclick="capture(${i})">📸 Capture Image</button>
+      <span id="count${i}">0 images</span>
+    `
   }
- }
+}
+createUI()
 
- const X=tf.concat(xs)
- const Y=tf.tensor1d(ys,"int32")
-
- model=tf.sequential()
- model.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}))
- model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy",metrics:["accuracy"]})
-
- await model.fit(X,Y,{
-  epochs:10,
-  callbacks:{onEpochEnd:(e,l)=>{
-   accuracy.textContent="Accuracy: "+(l.acc*100).toFixed(1)+"%"
-  }}
- })
-
- xs.forEach(t=>t.dispose())
- X.dispose();Y.dispose()
-
- setupBars()
- trainStatus.textContent="Training complete"
+function capture(classIndex) {
+  const canvas = document.createElement("canvas")
+  canvas.width = 224
+  canvas.height = 224
+  const ctx = canvas.getContext("2d")
+  ctx.drawImage(webcam, 0, 0, 224, 224)
+  samples[classIndex].push(canvas)
+  document.getElementById("count"+classIndex).innerText =
+    samples[classIndex].length + " images"
 }
 
-function setupBars(){
- predictionArea.innerHTML=""
- classes.forEach((c,i)=>{
-  predictionArea.innerHTML+=`
-  <strong>${c.name}</strong>
-  <div class="bar-bg"><div id="bar${i}" class="bar-fill"></div></div>
-  <p id="pct${i}" class="small"></p>`
- })
+async function train() {
+  model = tf.sequential()
+  model.add(tf.layers.flatten({inputShape:[224,224,3]}))
+  model.add(tf.layers.dense({units:64, activation:"relu"}))
+  model.add(tf.layers.dense({units:NUM_CLASSES, activation:"softmax"}))
+  model.compile({optimizer:"adam", loss:"categoricalCrossentropy"})
+
+  const xs = []
+  const ys = []
+
+  for (let i = 0; i < NUM_CLASSES; i++) {
+    for (let img of samples[i]) {
+      xs.push(tf.browser.fromPixels(img).toFloat().div(255))
+      ys.push(tf.oneHot(i, NUM_CLASSES))
+    }
+  }
+
+  await model.fit(tf.stack(xs), tf.stack(ys), {epochs:10})
+  alert("Training Complete ✅")
 }
 
-async function predict(t){
- const e=net.infer(t,"conv_preds")
- const p=model.predict(e)
- const data=await p.data()
+async function predict() {
+  const canvas = document.createElement("canvas")
+  canvas.width = 224
+  canvas.height = 224
+  canvas.getContext("2d").drawImage(webcam,0,0,224,224)
+  const img = tf.browser.fromPixels(canvas).toFloat().div(255).expandDims(0)
+  const preds = model.predict(img).dataSync()
 
- data.forEach((v,i)=>{
-  const percent=(v*100).toFixed(1)
-  const bar=document.getElementById("bar"+i)
-  bar.style.width=percent+"%"
-  bar.className="bar-fill "+(percent>70?"green":percent>40?"yellow":"red")
-  document.getElementById("pct"+i).textContent=percent+"%"
- })
-
- t.dispose();e.dispose();p.dispose()
-}
-
-async function loop(){
- if(!model||mode!=="live")return
- const t=tf.browser.fromPixels(video).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
- await predict(t)
- requestAnimationFrame(loop)
-}
-
-async function predictImage(input){
- if(!model)return
- imgTest.src=URL.createObjectURL(input.files[0])
- imgTest.style.display="block"
- await imgTest.decode()
- const t=tf.browser.fromPixels(imgTest).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
- predict(t)
-}
-
-function captureFromCamera(){
- if(!stream){alert("Start Live Camera first");return}
- const canvas=document.createElement("canvas")
- canvas.width=224
- canvas.height=224
- canvas.getContext("2d").drawImage(video,0,0,224,224)
- imgTest.src=canvas.toDataURL()
- imgTest.style.display="block"
- const t=tf.browser.fromPixels(imgTest).resizeNearestNeighbor([224,224]).toFloat().div(255).expandDims()
- predict(t)
+  const res = document.getElementById("results")
+  res.innerHTML = ""
+  preds.forEach((p,i)=>{
+    res.innerHTML += `
+      <div>Class ${i+1}: ${(p*100).toFixed(1)}%</div>
+      <div class="bar" style="width:${p*200}px"></div>
+    `
+  })
 }
 </script>
+
 </body>
 </html>
