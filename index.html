@@ -22,7 +22,7 @@ input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
 .count{font-size:12px;opacity:.8;margin-top:4px}
 .barbg{background:#1e293b;border-radius:6px;overflow:hidden}
-.bar{height:14px;background:#22c55e}
+.bar{height:14px;background:#22c55e;transition:width .15s}
 </style>
 </head>
 
@@ -43,6 +43,7 @@ input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
   <div class="panel">
     <h3>Classes</h3>
     <div id="classes" class="grid"></div>
+    <h3>Predictions</h3>
     <div id="results"></div>
   </div>
 </div>
@@ -52,27 +53,30 @@ const MAX = 50
 let classes = []
 let net, classifier
 let live = false
+let lastPredict = 0
+const FPS = 200 // ms → 5 predictions/sec
 
-// ---------- CAMERA ----------
 async function startCamera(){
   const stream = await navigator.mediaDevices.getUserMedia({video:true})
   video.srcObject = stream
 }
 startCamera()
 
-// ---------- CLASSES ----------
 function addClass(){
-  classes.push({name:`Class ${classes.length+1}`, images:[]})
+  classes.push({name:"", images:[]})
   render()
 }
 
+const classesDiv = document.getElementById("classes")
+const results = document.getElementById("results")
+
 function render(){
-  classesDiv.innerHTML = ""
+  classesDiv.innerHTML=""
   classes.forEach((c,i)=>{
     classesDiv.innerHTML += `
       <div class="card">
         <input placeholder="Class name"
-               onchange="classes[${i}].name=this.value || 'Class ${i+1}'">
+          onchange="classes[${i}].name=this.value||'Class ${i+1}'">
 
         <button onclick="capture(${i})">📸 Capture</button>
 
@@ -82,32 +86,17 @@ function render(){
 
         <button class="small" onclick="removeLast(${i})">↩ Delete Last</button>
         <button class="danger" onclick="wipe(${i})">🗑 Wipe All</button>
-        <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
 
         <div class="count">${c.images.length} / ${MAX}</div>
       </div>`
   })
 }
-const classesDiv = document.getElementById("classes")
 addClass()
 addClass()
 
-function deleteClass(i){
-  classes.splice(i,1)
-  render()
-}
+function wipe(i){ classes[i].images=[]; render() }
+function removeLast(i){ classes[i].images.pop(); render() }
 
-function wipe(i){
-  classes[i].images=[]
-  render()
-}
-
-function removeLast(i){
-  classes[i].images.pop()
-  render()
-}
-
-// ---------- IMAGE INPUT ----------
 function capture(i){
   if(classes[i].images.length>=MAX) return
   const c=document.createElement("canvas")
@@ -132,15 +121,10 @@ function upload(e,i){
   }
 }
 
-// ---------- TRAIN ----------
 async function train(){
-  if(!net){
-    net = await mobilenet.load()
-  }
+  if(!net) net = await mobilenet.load()
 
-  const xs=[]
-  const ys=[]
-
+  const xs=[], ys=[]
   classes.forEach((c,i)=>{
     c.images.forEach(img=>{
       const t=tf.browser.fromPixels(img).expandDims(0)
@@ -150,8 +134,7 @@ async function train(){
       t.dispose()
     })
   })
-
-  if(xs.length===0){alert("Add images first");return}
+  if(xs.length===0){alert("Add images");return}
 
   const x=tf.concat(xs)
   const y=tf.tensor1d(ys,"int32")
@@ -163,32 +146,41 @@ async function train(){
     activation:"softmax"
   }))
   classifier.compile({
-    optimizer:tf.train.adam(0.0005),
+    optimizer:tf.train.adam(0.0003),
     loss:"sparseCategoricalCrossentropy"
   })
 
-  await classifier.fit(x,y,{epochs:20})
-  alert("Training complete ✅")
+  await classifier.fit(x,y,{epochs:25})
+  alert("Training complete")
 
-  x.dispose()
-  y.dispose()
-  xs.forEach(t=>t.dispose())
+  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose())
+  setupBars()
 }
 
-// ---------- LIVE ----------
+function setupBars(){
+  results.innerHTML=""
+  classes.forEach((c,i)=>{
+    results.innerHTML += `
+      <div>${c.name||'Class '+(i+1)}</div>
+      <div class="barbg"><div id="bar${i}" class="bar"></div></div>`
+  })
+}
+
 function startLive(){
   if(!classifier){alert("Train first");return}
   live=true
   loop()
 }
 
-async function loop(){
+function loop(time){
   if(!live) return
-  predict(video)
+  if(time-lastPredict>FPS){
+    predict(video)
+    lastPredict=time
+  }
   requestAnimationFrame(loop)
 }
 
-// ---------- TEST IMAGE ----------
 function testImage(e){
   if(!classifier){alert("Train first");return}
   const img=new Image()
@@ -196,7 +188,6 @@ function testImage(e){
   img.src=URL.createObjectURL(e.target.files[0])
 }
 
-// ---------- PREDICT ----------
 function predict(source){
   const c=document.createElement("canvas")
   c.width=224;c.height=224
@@ -206,15 +197,11 @@ function predict(source){
   const e=net.infer(t,true)
   const p=classifier.predict(e).dataSync()
 
-  results.innerHTML="<h3>Prediction</h3>"
   p.forEach((v,i)=>{
-    results.innerHTML+=`
-      <div>${classes[i].name} – ${(v*100).toFixed(1)}%</div>
-      <div class="barbg"><div class="bar" style="width:${v*100}%"></div></div>`
+    document.getElementById("bar"+i).style.width=(v*100)+"%"
   })
 
-  t.dispose()
-  e.dispose()
+  t.dispose(); e.dispose()
 }
 </script>
 </body>
