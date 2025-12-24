@@ -55,6 +55,7 @@ let lastPredict = 0
 const FPS = 200 // 5 predictions/sec
 
 // ---------- CAMERA ----------
+const video = document.getElementById("video")
 async function startCamera(){
   const stream = await navigator.mediaDevices.getUserMedia({video:true})
   video.srcObject = stream
@@ -125,38 +126,32 @@ function upload(e,i){
 // ---------- TRAINING ----------
 async function train(){
   if(!net) net = await mobilenet.load()
-
-  const xs=[], ys=[]
   results.innerHTML = `<h3>Training Progress</h3>`
 
+  const xs = [], ys = []
   classes.forEach((c,i)=>{
     c.images.forEach(img=>{
-      const t=tf.browser.fromPixels(img).expandDims(0)
-      const e=net.infer(t,true)
+      const t = tf.browser.fromPixels(img).resizeBilinear([224,224]).expandDims(0).toFloat().div(255)
+      const e = net.infer(t,true)
       xs.push(e)
       ys.push(i)
       t.dispose()
     })
   })
-  if(xs.length===0){alert("Add images");return}
 
-  const x=tf.concat(xs)
-  const y=tf.tensor1d(ys,"int32")
+  if(xs.length===0){ alert("Add images"); return }
 
-  classifier=tf.sequential()
-  classifier.add(tf.layers.dense({
-    inputShape:[1024],
-    units:classes.length,
-    activation:"softmax"
-  }))
-  classifier.compile({
-    optimizer:tf.train.adam(0.0003),
-    loss:"sparseCategoricalCrossentropy",
-    metrics:["accuracy"]
-  })
+  const x = tf.concat(xs)
+  const y = tf.tensor1d(ys,"int32")
+
+  classifier = tf.sequential()
+  classifier.add(tf.layers.dense({ inputShape:[x.shape[1]], units:100, activation:"relu" }))
+  classifier.add(tf.layers.dense({ units: classes.length, activation:"softmax" }))
+  classifier.compile({ optimizer: tf.train.adam(0.0003), loss:"sparseCategoricalCrossentropy", metrics:["accuracy"] })
 
   await classifier.fit(x,y,{
     epochs:25,
+    shuffle:true,
     callbacks:{
       onEpochEnd:(epoch, logs)=>{
         results.innerHTML = `<h3>Training Progress</h3>
@@ -169,7 +164,9 @@ async function train(){
     }
   })
 
-  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose())
+  x.dispose()
+  y.dispose()
+  xs.forEach(t=>t.dispose())
 }
 
 // ---------- SETUP PREDICTION BARS ----------
@@ -212,7 +209,7 @@ function predict(source){
   c.width=224;c.height=224
   c.getContext("2d").drawImage(source,0,0,224,224)
 
-  const t=tf.browser.fromPixels(c).expandDims(0)
+  const t=tf.browser.fromPixels(c).expandDims(0).toFloat().div(255)
   const e=net.infer(t,true)
   const p=classifier.predict(e).dataSync()
 
@@ -221,7 +218,8 @@ function predict(source){
     if(bar) bar.style.width = (v*100)+"%"
   })
 
-  t.dispose(); e.dispose()
+  t.dispose()
+  e.dispose()
 }
 </script>
 </body>
