@@ -71,7 +71,8 @@ function render(){
   classes.forEach((c,i)=>{
     classesDiv.innerHTML += `
       <div class="card">
-        <input value="${c.name}" onchange="classes[${i}].name=this.value">
+        <input placeholder="Class name"
+               onchange="classes[${i}].name=this.value || 'Class ${i+1}'">
 
         <button onclick="capture(${i})">📸 Capture</button>
 
