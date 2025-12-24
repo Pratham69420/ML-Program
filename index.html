@@ -2,210 +2,219 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 Machine Learning Project</title>
+<title>ML Image Classifier</title>
+
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
 body{margin:0;font-family:system-ui;background:#0b1220;color:white}
-header{padding:20px;font-size:26px;font-weight:600}
-.main{display:grid;grid-template-columns:380px 1fr;gap:20px;padding:20px}
-.camera,.panel{background:#020617;padding:16px;border-radius:16px}
+header{text-align:center;padding:16px;font-size:24px;font-weight:600}
+.main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
+.panel{background:#020617;border-radius:14px;padding:14px}
 video{width:100%;border-radius:12px}
-.classes{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px}
-.card{background:#020617;border:1px solid #1e293b;border-radius:14px;padding:14px}
-input{width:100%;padding:8px;border-radius:8px;border:none;margin-bottom:8px}
-button{width:100%;padding:8px;border:none;border-radius:10px;background:#2563eb;color:white;cursor:pointer;margin-top:6px;font-size:14px}
+button{width:100%;padding:8px;margin-top:6px;border:none;border-radius:10px;background:#2563eb;color:white;cursor:pointer}
 button:hover{background:#1e40af}
 .small{background:#334155}
 .danger{background:#7f1d1d}
-.count{font-size:13px;opacity:.8;margin-top:6px}
-.bar-bg{background:#1e293b;border-radius:8px;overflow:hidden}
+input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
+.card{background:#020617;border:1px solid #1e293b;border-radius:12px;padding:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
+.count{font-size:12px;opacity:.8;margin-top:4px}
+.barbg{background:#1e293b;border-radius:6px;overflow:hidden}
 .bar{height:14px;background:#22c55e}
-.label{margin-top:10px;font-size:14px}
-.warn{color:#fbbf24;font-size:13px;margin-top:6px}
 </style>
 </head>
 
 <body>
-
-<header>🤖 Machine Learning Image Classifier</header>
+<header>🤖 Grade 7 Machine Learning Image Classifier</header>
 
 <div class="main">
-  <div class="camera">
-    <video id="webcam" autoplay playsinline></video>
+  <div class="panel">
+    <video id="video" autoplay playsinline></video>
 
     <button onclick="addClass()">➕ Add Class</button>
     <button onclick="train()">🚀 Train Model</button>
     <button onclick="startLive()">📹 Live Test</button>
 
-    <!-- Image test -->
     <input type="file" accept="image/*" onchange="testImage(event)">
   </div>
 
   <div class="panel">
     <h3>Classes</h3>
-    <div class="classes" id="classArea"></div>
+    <div id="classes" class="grid"></div>
     <div id="results"></div>
   </div>
 </div>
 
 <script>
-const MAX_IMAGES = 50
-let samples=[], classNames=[]
-let model, live=false
+const MAX = 50
+let classes = []
+let net, classifier
+let live = false
 
-async function startCam(){
+// ---------- CAMERA ----------
+async function startCamera(){
   const stream = await navigator.mediaDevices.getUserMedia({video:true})
-  webcam.srcObject = stream
+  video.srcObject = stream
 }
-startCam()
+startCamera()
 
+// ---------- CLASSES ----------
 function addClass(){
-  samples.push([])
-  classNames.push("Class " + samples.length)
-  render()
-}
-
-function deleteClass(i){
-  if(!confirm("Delete this class and all its images?")) return
-  samples.splice(i,1)
-  classNames.splice(i,1)
+  classes.push({name:`Class ${classes.length+1}`, images:[]})
   render()
 }
 
 function render(){
-  const area=document.getElementById("classArea")
-  area.innerHTML=""
-  samples.forEach((_,i)=>{
-    area.innerHTML+=`
+  classesDiv.innerHTML = ""
+  classes.forEach((c,i)=>{
+    classesDiv.innerHTML += `
       <div class="card">
-        <input placeholder="Class name"
-          onchange="classNames[${i}]=this.value||'Class ${i+1}'">
+        <input value="${c.name}" onchange="classes[${i}].name=this.value">
 
         <button onclick="capture(${i})">📸 Capture</button>
 
-        <button onclick="document.getElementById('uploadInput${i}').click()">
-          📁 Upload from Computer / Google Drive
-        </button>
-        <input type="file" id="uploadInput${i}" accept="image/*" multiple style="display:none"
-               onchange="upload(event, ${i})">
+        <button onclick="document.getElementById('up${i}').click()">📁 Upload Images</button>
+        <input id="up${i}" type="file" accept="image/*" multiple style="display:none"
+               onchange="upload(event,${i})">
 
-        <button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
+        <button class="small" onclick="removeLast(${i})">↩ Delete Last</button>
         <button class="danger" onclick="wipe(${i})">🗑 Wipe All</button>
         <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
 
-        <div class="count" id="count${i}">0 / ${MAX_IMAGES}</div>
-        <div class="warn" id="warn${i}"></div>
+        <div class="count">${c.images.length} / ${MAX}</div>
       </div>`
   })
 }
-
+const classesDiv = document.getElementById("classes")
 addClass()
 addClass()
 
+function deleteClass(i){
+  classes.splice(i,1)
+  render()
+}
+
+function wipe(i){
+  classes[i].images=[]
+  render()
+}
+
+function removeLast(i){
+  classes[i].images.pop()
+  render()
+}
+
+// ---------- IMAGE INPUT ----------
 function capture(i){
-  if(samples[i].length>=MAX_IMAGES){warn(i);return}
+  if(classes[i].images.length>=MAX) return
   const c=document.createElement("canvas")
   c.width=224;c.height=224
-  c.getContext("2d").drawImage(webcam,0,0,224,224)
-  samples[i].push(c)
-  update(i)
+  c.getContext("2d").drawImage(video,0,0,224,224)
+  classes[i].images.push(c)
+  render()
 }
 
 function upload(e,i){
   for(const f of e.target.files){
-    if(samples[i].length>=MAX_IMAGES){warn(i);break}
+    if(classes[i].images.length>=MAX) break
     const img=new Image()
     img.onload=()=>{
       const c=document.createElement("canvas")
       c.width=224;c.height=224
       c.getContext("2d").drawImage(img,0,0,224,224)
-      samples[i].push(c)
-      update(i)
+      classes[i].images.push(c)
+      render()
     }
     img.src=URL.createObjectURL(f)
   }
 }
 
-function deleteLast(i){
-  samples[i].pop()
-  update(i)
-}
-
-function wipe(i){
-  if(confirm("Delete all images for this class?")){
-    samples[i]=[]
-    update(i)
-  }
-}
-
-function update(i){
-  document.getElementById("count"+i).innerText =
-    samples[i].length+" / "+MAX_IMAGES
-  document.getElementById("warn"+i).innerText=""
-}
-
-function warn(i){
-  document.getElementById("warn"+i).innerText="Image limit reached"
-}
-
+// ---------- TRAIN ----------
 async function train(){
-  let xs=[], ys=[]
-  samples.forEach((arr,i)=>{
-    arr.forEach(img=>{
-      xs.push(tf.browser.fromPixels(img).div(255))
-      ys.push(tf.oneHot(i,samples.length))
+  if(!net){
+    net = await mobilenet.load()
+  }
+
+  const xs=[]
+  const ys=[]
+
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0)
+      const e=net.infer(t,true)
+      xs.push(e)
+      ys.push(i)
+      t.dispose()
     })
   })
+
   if(xs.length===0){alert("Add images first");return}
 
-  model=tf.sequential({
-    layers:[
-      tf.layers.flatten({inputShape:[224,224,3]}),
-      tf.layers.dense({units:64,activation:"relu"}),
-      tf.layers.dense({units:samples.length,activation:"softmax"})
-    ]
+  const x=tf.concat(xs)
+  const y=tf.tensor1d(ys,"int32")
+
+  classifier=tf.sequential()
+  classifier.add(tf.layers.dense({
+    inputShape:[1024],
+    units:classes.length,
+    activation:"softmax"
+  }))
+  classifier.compile({
+    optimizer:tf.train.adam(0.0005),
+    loss:"sparseCategoricalCrossentropy"
   })
-  model.compile({optimizer:"adam",loss:"categoricalCrossentropy"})
-  await model.fit(tf.stack(xs),tf.stack(ys),{epochs:15})
+
+  await classifier.fit(x,y,{epochs:20})
   alert("Training complete ✅")
+
+  x.dispose()
+  y.dispose()
+  xs.forEach(t=>t.dispose())
 }
 
+// ---------- LIVE ----------
 function startLive(){
-  if(!model){alert("Train first");return}
+  if(!classifier){alert("Train first");return}
   live=true
-  liveLoop()
+  loop()
 }
 
-function liveLoop(){
-  if(!live)return
-  predictFrom(webcam)
-  requestAnimationFrame(liveLoop)
+async function loop(){
+  if(!live) return
+  predict(video)
+  requestAnimationFrame(loop)
 }
 
+// ---------- TEST IMAGE ----------
 function testImage(e){
-  if(!model){alert("Train first");return}
+  if(!classifier){alert("Train first");return}
   const img=new Image()
-  img.onload=()=>predictFrom(img)
+  img.onload=()=>predict(img)
   img.src=URL.createObjectURL(e.target.files[0])
 }
 
-function predictFrom(source){
+// ---------- PREDICT ----------
+function predict(source){
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(source,0,0,224,224)
-  const img=tf.browser.fromPixels(c).div(255).expandDims(0)
-  const p=model.predict(img).dataSync()
 
-  const r=document.getElementById("results")
-  r.innerHTML="<h3>Prediction</h3>"
+  const t=tf.browser.fromPixels(c).expandDims(0)
+  const e=net.infer(t,true)
+  const p=classifier.predict(e).dataSync()
+
+  results.innerHTML="<h3>Prediction</h3>"
   p.forEach((v,i)=>{
-    r.innerHTML+=`
-      <div class="label">${classNames[i]} – ${(v*100).toFixed(1)}%</div>
-      <div class="bar-bg"><div class="bar" style="width:${v*100}%"></div></div>`
+    results.innerHTML+=`
+      <div>${classes[i].name} – ${(v*100).toFixed(1)}%</div>
+      <div class="barbg"><div class="bar" style="width:${v*100}%"></div></div>`
   })
+
+  t.dispose()
+  e.dispose()
 }
 </script>
-
 </body>
 </html>
