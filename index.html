@@ -2,74 +2,28 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 ML Classifier</title>
+<title>ML Image Classifier</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body{
-  margin:0;
-  font-family:system-ui;
-  background:#020617;
-  color:white;
-}
-
-/* ===== START SCREEN ===== */
-#start{
-  position:fixed;
-  inset:0;
-  background:#020617;
-  display:flex;
-  flex-direction:column;
-  justify-content:center;
-  align-items:center;
-  gap:12px;
-  z-index:10;
-  animation:fadeIn .6s ease;
-}
-
-@keyframes fadeIn{
-  from{opacity:0;transform:scale(.96)}
-  to{opacity:1;transform:scale(1)}
-}
-
-.start-btn{
-  width:220px;          /* FIXED SIZE */
-  padding:10px;
-  font-size:15px;
-  border:none;
-  border-radius:10px;
-  background:#2563eb;
-  color:white;
-  cursor:pointer;
-}
-
-.start-btn:hover{
-  filter:brightness(90%);
-}
-
-/* ===== MAIN APP ===== */
-#app{
-  display:none;
-  padding:14px;
-}
+body{margin:0;font-family:system-ui;background:#020617;color:white}
+header{text-align:center;padding:12px;font-size:22px}
 
 .main{
   display:grid;
   grid-template-columns:360px 1fr;
   gap:14px;
+  padding:14px;
 }
 
 .panel{
   border:1px solid #1e293b;
-  border-radius:14px;
+  border-radius:12px;
   padding:12px;
 }
 
-video{
-  width:100%;
-  border-radius:12px;
-}
+video{width:100%;border-radius:10px}
 
 button{
   width:100%;
@@ -120,37 +74,24 @@ input{
 
 <body>
 
-<!-- START SCREEN -->
-<div id="start">
-  <h2>Select your device</h2>
-  <button class="start-btn" onclick="startApp()">💻 Computer</button>
-  <button class="start-btn" onclick="startApp()">📱 Phone</button>
-  <button class="start-btn" onclick="startApp()">📱 iPad</button>
-</div>
+<header>🤖 ML Image Classifier</header>
 
-<!-- MAIN APP -->
-<div id="app">
-  <h2 style="text-align:center">🤖 Image Classifier</h2>
+<div class="main">
+  <div class="panel">
+    <video id="video" autoplay playsinline></video>
+    <button onclick="addClass()">➕ Add Class</button>
+    <button onclick="train()">🚀 Train</button>
+    <button onclick="startLive()">📹 Live</button>
+  </div>
 
-  <div class="main">
-    <div class="panel">
-      <video id="video" autoplay playsinline></video>
-      <button onclick="addClass()">➕ Add Class</button>
-      <button onclick="train()">🚀 Train</button>
-      <button onclick="startLive()">📹 Live</button>
-    </div>
-
-    <div class="panel">
-      <div id="classes" class="grid"></div>
-      <h3 id="top">Prediction: —</h3>
-      <div id="results"></div>
-    </div>
+  <div class="panel">
+    <div id="classes" class="grid"></div>
+    <h3 id="top">Prediction: —</h3>
+    <div id="results"></div>
   </div>
 </div>
 
 <script>
-const start=document.getElementById("start")
-const app=document.getElementById("app")
 const video=document.getElementById("video")
 const classesDiv=document.getElementById("classes")
 const results=document.getElementById("results")
@@ -159,16 +100,8 @@ const top=document.getElementById("top")
 let classes=[]
 let net, model, live=false
 
-function startApp(){
-  start.remove()           // 🔥 HARD REMOVE (cannot bug)
-  app.style.display="block"
-
-  navigator.mediaDevices.getUserMedia({video:true})
-    .then(s=>video.srcObject=s)
-
-  addClass()
-  addClass()
-}
+navigator.mediaDevices.getUserMedia({video:true})
+  .then(s=>video.srcObject=s)
 
 function addClass(){
   classes.push({name:"Class "+(classes.length+1),images:[]})
@@ -235,4 +168,5 @@ async function train(){
   model.add(tf.layers.dense({inputShape:[x.shape[1]],units:100,activation:"relu"}))
   model.add(tf.layers.dense({units:classes.length,activation:"softmax"}))
   model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy"})
-  await model.fit(x,y,{epochs:20
+  await model.fit(x,y,{epochs:20,callbacks:{
+    onTrainEnd:()=>{results
