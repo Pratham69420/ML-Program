@@ -5,20 +5,86 @@
 <title>Grade 7 ML Classifier</title>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+
 <style>
 body{margin:0;font-family:system-ui;background:#020617;color:white}
 header{text-align:center;padding:14px;font-size:22px}
+
 .main{display:grid;grid-template-columns:360px 1fr;gap:14px;padding:14px}
 .panel{background:#020617;border:1px solid #1e293b;border-radius:14px;padding:12px}
+
 video{width:100%;border-radius:12px}
-button{width:100%;padding:6px;margin-top:4px;border:none;border-radius:8px;background:#2563eb;color:white;font-size:13px}
+
+button{
+  width:100%;
+  padding:7px;
+  margin-top:4px;
+  border:none;
+  border-radius:8px;
+  background:#2563eb;
+  color:white;
+  font-size:13px;
+  cursor:pointer;
+  transition:
+    background-color .25s ease,
+    transform .2s ease,
+    box-shadow .25s ease,
+    filter .25s ease;
+}
+
+/* SMOOTH HOVER + SLIDE + GLOW */
+button:hover{
+  filter:brightness(90%);
+  transform:translateY(-2px);
+  box-shadow:0 0 12px rgba(37,99,235,.6);
+}
+
+/* SMALL BUTTONS */
 .small{background:#334155}
+.small:hover{
+  filter:brightness(90%);
+  box-shadow:0 0 10px rgba(148,163,184,.5);
+}
+
+/* DANGER BUTTONS */
 .danger{background:#dc2626}
-input{width:100%;padding:5px;border-radius:6px;border:none;margin-top:4px}
-.card{border:1px solid #1e293b;border-radius:10px;padding:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
-.barbg{background:#1e293b;border-radius:6px;overflow:hidden}
-.bar{height:14px;background:#22c55e}
+.danger:hover{
+  filter:brightness(90%);
+  box-shadow:0 0 14px rgba(220,38,38,.7);
+}
+
+input{
+  width:100%;
+  padding:5px;
+  border-radius:6px;
+  border:none;
+  margin-top:4px;
+}
+
+.card{
+  border:1px solid #1e293b;
+  border-radius:10px;
+  padding:8px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
+}
+
+.barbg{
+  background:#1e293b;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+.bar{
+  height:14px;
+  background:#22c55e;
+  transition:width .2s ease;
+}
+
 .percent{font-size:12px;opacity:.8}
 </style>
 </head>
@@ -27,18 +93,18 @@ input{width:100%;padding:5px;border-radius:6px;border:none;margin-top:4px}
 <header>🤖 Image Classifier</header>
 
 <div class="main">
-<div class="panel">
-<video id="video" autoplay></video>
-<button onclick="addClass()">➕ Add Class</button>
-<button onclick="train()">🚀 Train</button>
-<button onclick="startLive()">📹 Live</button>
-</div>
+  <div class="panel">
+    <video id="video" autoplay></video>
+    <button onclick="addClass()">➕ Add Class</button>
+    <button onclick="train()">🚀 Train</button>
+    <button onclick="startLive()">📹 Live</button>
+  </div>
 
-<div class="panel">
-<div id="classes" class="grid"></div>
-<h3 id="top">Prediction: —</h3>
-<div id="results"></div>
-</div>
+  <div class="panel">
+    <div id="classes" class="grid"></div>
+    <h3 id="top">Prediction: —</h3>
+    <div id="results"></div>
+  </div>
 </div>
 
 <script>
@@ -47,31 +113,34 @@ let net, model
 let live=false
 
 const video=document.getElementById("video")
-navigator.mediaDevices.getUserMedia({video:true}).then(s=>video.srcObject=s)
+navigator.mediaDevices.getUserMedia({video:true})
+.then(s=>video.srcObject=s)
 
 function addClass(){
 classes.push({name:"Class "+(classes.length+1),images:[]})
 render()
 }
 
+const classesDiv=document.getElementById("classes")
+const results=document.getElementById("results")
+const top=document.getElementById("top")
+
 function render(){
 classesDiv.innerHTML=""
 classes.forEach((c,i)=>{
 classesDiv.innerHTML+=`
 <div class="card">
-<input value="${c.name}" oninput="classes[${i}].name=this.value">
-<button onclick="capture(${i})">📸 Capture</button>
-<button onclick="document.getElementById('up${i}').click()">📁 Upload</button>
-<input id="up${i}" type="file" multiple hidden onchange="upload(event,${i})">
-<button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
-<button class="small" onclick="wipeAll(${i})">🧹 Wipe All</button>
-<button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
-<div>${c.images.length} images</div>
+  <input value="${c.name}" oninput="classes[${i}].name=this.value">
+  <button onclick="capture(${i})">📸 Capture</button>
+  <button onclick="document.getElementById('up${i}').click()">📁 Upload</button>
+  <input id="up${i}" type="file" multiple hidden onchange="upload(event,${i})">
+  <button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
+  <button class="small" onclick="wipeAll(${i})">🧹 Wipe All</button>
+  <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
+  <div>${c.images.length} images</div>
 </div>`
 })
 }
-
-const classesDiv=document.getElementById("classes")
 
 function capture(i){
 const c=document.createElement("canvas")
@@ -112,8 +181,8 @@ render()
 
 async function train(){
 if(!net) net=await mobilenet.load()
-const xs=[],ys=[]
 results.innerHTML="Training..."
+const xs=[],ys=[]
 classes.forEach((c,i)=>{
 c.images.forEach(img=>{
 const t=tf.browser.fromPixels(img).expandDims(0).toFloat().div(255)
@@ -128,7 +197,10 @@ model.add(tf.layers.dense({inputShape:[x.shape[1]],units:100,activation:"relu"})
 model.add(tf.layers.dense({units:classes.length,activation:"softmax"}))
 model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy"})
 await model.fit(x,y,{epochs:20,callbacks:{
-onTrainEnd:()=>{results.innerHTML="✅ Training Complete";setupBars()}
+onTrainEnd:()=>{
+results.innerHTML="✅ Training Complete"
+setupBars()
+}
 }})
 }
 
@@ -138,7 +210,7 @@ classes.forEach((c,i)=>{
 results.innerHTML+=`
 <div>${c.name}</div>
 <div class="barbg"><div id="bar${i}" class="bar"></div></div>
-<div class="percent" id="pct${i}">0%</div>`
+<div id="pct${i}" class="percent">0%</div>`
 })
 }
 
