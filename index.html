@@ -14,47 +14,73 @@ header{text-align:center;padding:14px;font-size:22px}
 #start{
 position:fixed;inset:0;
 background:#020617;
-display:flex;flex-direction:column;
-justify-content:center;align-items:center;
-gap:12px;z-index:10
+display:flex;
+flex-direction:column;
+justify-content:center;
+align-items:center;
+gap:12px;
+z-index:10
 }
 
 /* MAIN UI */
-.main{display:none;grid-template-columns:360px 1fr;gap:14px;padding:14px}
-.panel{border:1px solid #1e293b;border-radius:14px;padding:12px}
+#app{
+display:none;
+grid-template-columns:360px 1fr;
+gap:14px;
+padding:14px
+}
 
+.panel{border:1px solid #1e293b;border-radius:14px;padding:12px}
 video{width:100%;border-radius:12px}
 
-/* BUTTON BASE */
 button{
-width:100%;padding:7px;margin-top:4px;
-border:none;border-radius:8px;
-background:#2563eb;color:white;
-font-size:13px;cursor:pointer;
-transition:background .25s,transform .2s,box-shadow .25s
+width:100%;
+padding:8px;
+border:none;
+border-radius:8px;
+background:#2563eb;
+color:white;
+font-size:14px;
+cursor:pointer;
+margin-top:6px;
 }
 
-/* HOVER ONLY ON MOUSE DEVICES */
-@media (hover:hover){
-button:hover{
-transform:translateY(-2px);
-box-shadow:0 0 12px rgba(37,99,235,.6)
-}
-.small:hover{box-shadow:0 0 10px rgba(148,163,184,.5)}
-.danger:hover{box-shadow:0 0 14px rgba(220,38,38,.7)}
-}
+button:hover{filter:brightness(90%)}
 
 .small{background:#334155}
 .danger{background:#dc2626}
 
-input{width:100%;padding:5px;border-radius:6px;border:none;margin-top:4px}
+input{
+width:100%;
+padding:6px;
+border-radius:6px;
+border:none;
+margin-top:6px
+}
 
-.card{border:1px solid #1e293b;border-radius:10px;padding:8px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.card{
+border:1px solid #1e293b;
+border-radius:10px;
+padding:8px
+}
 
-.barbg{background:#1e293b;border-radius:6px;overflow:hidden}
-.bar{height:14px;background:#22c55e;transition:width .2s}
-.percent{font-size:12px;opacity:.8}
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+gap:10px
+}
+
+.barbg{
+background:#1e293b;
+border-radius:6px;
+overflow:hidden
+}
+
+.bar{
+height:14px;
+background:#22c55e;
+transition:width .2s
+}
 </style>
 </head>
 
@@ -70,7 +96,8 @@ input{width:100%;padding:5px;border-radius:6px;border:none;margin-top:4px}
 
 <header>🤖 Image Classifier</header>
 
-<div class="main" id="app">
+<!-- MAIN APP -->
+<div id="app">
 <div class="panel">
 <video id="video" autoplay playsinline></video>
 <button onclick="addClass()">➕ Add Class</button>
@@ -86,19 +113,24 @@ input{width:100%;padding:5px;border-radius:6px;border:none;margin-top:4px}
 </div>
 
 <script>
-let classes=[], net, model, live=false
-const video=document.getElementById("video")
+const start=document.getElementById("start")
 const app=document.getElementById("app")
+const video=document.getElementById("video")
 const classesDiv=document.getElementById("classes")
 const results=document.getElementById("results")
 const top=document.getElementById("top")
 
+let classes=[], net, model, live=false
+
 function startApp(){
-document.getElementById("start").style.display="none"
+start.style.display="none"
 app.style.display="grid"
+
 navigator.mediaDevices.getUserMedia({video:true})
-.then(s=>video.srcObject=s)
-addClass(); addClass()
+.then(stream=>video.srcObject=stream)
+
+addClass()
+addClass()
 }
 
 function addClass(){
@@ -127,7 +159,8 @@ function capture(i){
 const c=document.createElement("canvas")
 c.width=224;c.height=224
 c.getContext("2d").drawImage(video,0,0,224,224)
-classes[i].images.push(c); render()
+classes[i].images.push(c)
+render()
 }
 
 function upload(e,i){
@@ -137,7 +170,8 @@ img.onload=()=>{
 const c=document.createElement("canvas")
 c.width=224;c.height=224
 c.getContext("2d").drawImage(img,0,0,224,224)
-classes[i].images.push(c); render()
+classes[i].images.push(c)
+render()
 }
 img.src=URL.createObjectURL(f)
 }
@@ -174,12 +208,13 @@ results.innerHTML=""
 classes.forEach((c,i)=>{
 results.innerHTML+=`
 <div>${c.name}</div>
-<div class="barbg"><div id="bar${i}" class="bar"></div></div>
-<div id="pct${i}" class="percent">0%</div>`
+<div class="barbg"><div id="bar${i}" class="bar"></div></div>`
 })
 }
 
-function startLive(){if(model){live=true;loop()}}
+function startLive(){
+if(model){live=true;loop()}
+}
 
 function loop(){
 if(!live)return
@@ -196,10 +231,7 @@ const e=net.infer(t,true)
 const p=model.predict(e).dataSync()
 let best=0
 p.forEach((v,i)=>{
-bar=document.getElementById("bar"+i)
-pct=document.getElementById("pct"+i)
-bar.style.width=(v*100)+"%"
-pct.innerText=(v*100).toFixed(1)+"%"
+document.getElementById("bar"+i).style.width=(v*100)+"%"
 if(v>p[best])best=i
 })
 top.innerText="Prediction: "+classes[best].name
