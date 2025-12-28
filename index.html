@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 ML Image Classifier</title>
+<title>ML Image Classifier</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
@@ -19,7 +19,7 @@ button{width:100%;padding:8px;margin-top:6px;border:none;border-radius:10px;back
 input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
 .card{background:#020617;border:1px solid #1e293b;border-radius:12px;padding:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.barbg{background:#1e293b;border-radius:6px;overflow:hidden;margin-bottom:6px}
+.barbg{background:#1e293b;border-radius:6px;overflow:hidden}
 .bar{height:14px;background:#22c55e}
 </style>
 </head>
@@ -29,7 +29,7 @@ input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
 
 <div class="main">
   <div class="panel">
-    <video id="video" autoplay playsinline></video>
+    <video id="video" autoplay></video>
     <button onclick="addClass()">➕ Add Class</button>
     <button onclick="train()">🚀 Train</button>
     <button onclick="startLive()">📹 Live</button>
@@ -40,7 +40,6 @@ input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
 
   <div class="panel">
     <div id="classes" class="grid"></div>
-    <h3 id="topResult">Prediction: —</h3>
     <div id="results"></div>
   </div>
 </div>
@@ -56,7 +55,6 @@ const FPS=200
 const video=document.getElementById("video")
 const classesDiv=document.getElementById("classes")
 const results=document.getElementById("results")
-const topResult=document.getElementById("topResult")
 
 navigator.mediaDevices.getUserMedia({video:true})
 .then(s=>video.srcObject=s)
@@ -72,7 +70,8 @@ function render(){
   classes.forEach((c,i)=>{
     classesDiv.innerHTML+=`
     <div class="card">
-      <input value="${c.name}" oninput="classes[${i}].name=this.value">
+      <input value="${c.name}" 
+        oninput="classes[${i}].name=this.value">
       <button onclick="capture(${i})">📸 Capture</button>
       <button onclick="document.getElementById('up${i}').click()">📁 Upload</button>
       <input id="up${i}" type="file" multiple hidden onchange="upload(event,${i})">
@@ -161,13 +160,12 @@ async function train(){
 
 // ---------- SAVE / LOAD ----------
 async function saveModel(){
-  if(!classifier)return
-  await classifier.save("localstorage://ml-model")
+  await classifier.save("localstorage://ml")
 }
 
 async function loadModel(){
   net=await mobilenet.load()
-  classifier=await tf.loadLayersModel("localstorage://ml-model")
+  classifier=await tf.loadLayersModel("localstorage://ml")
   loadClassNames()
   setupBars()
 }
@@ -207,32 +205,23 @@ function loop(t){
   requestAnimationFrame(loop)
 }
 
-// ---------- IMAGE TEST ----------
 function testImage(e){
   const img=new Image()
   img.onload=()=>predict(img)
   img.src=URL.createObjectURL(e.target.files[0])
 }
 
-// ---------- PREDICT ----------
 function predict(src){
   const c=document.createElement("canvas")
   c.width=224;c.height=224
   c.getContext("2d").drawImage(src,0,0,224,224)
-
   const t=tf.browser.fromPixels(c).expandDims(0).toFloat().div(255)
   const e=net.infer(t,true)
   const p=classifier.predict(e).dataSync()
-
-  let best=0, bestVal=0
   p.forEach((v,i)=>{
     const b=document.getElementById("bar"+i)
     if(b)b.style.width=(v*100)+"%"
-    if(v>bestVal){bestVal=v;best=i}
   })
-
-  topResult.innerText=`Prediction: ${classes[best].name} (${(bestVal*100).toFixed(1)}%)`
-
   t.dispose();e.dispose()
 }
 </script>
