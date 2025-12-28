@@ -7,82 +7,114 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#020617;color:white;overflow:hidden}
-header{text-align:center;padding:14px;font-size:22px}
+body{
+  margin:0;
+  font-family:system-ui;
+  background:#020617;
+  color:white;
+}
 
 /* ===== START SCREEN ===== */
 #start{
-position:fixed;inset:0;
-background:radial-gradient(circle,#020617,#000);
-display:flex;flex-direction:column;
-justify-content:center;align-items:center;
-gap:14px;z-index:10;
-animation:fadeIn .8s ease
+  position:fixed;
+  inset:0;
+  background:#020617;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+  gap:12px;
+  z-index:10;
+  animation:fadeIn .6s ease;
 }
 
 @keyframes fadeIn{
-from{opacity:0;transform:scale(.95)}
-to{opacity:1;transform:scale(1)}
+  from{opacity:0;transform:scale(.96)}
+  to{opacity:1;transform:scale(1)}
 }
 
-#start h2{
-font-size:26px;
-animation:glitch 1.8s infinite
+.start-btn{
+  width:220px;          /* FIXED SIZE */
+  padding:10px;
+  font-size:15px;
+  border:none;
+  border-radius:10px;
+  background:#2563eb;
+  color:white;
+  cursor:pointer;
 }
 
-@keyframes glitch{
-0%,100%{text-shadow:none}
-50%{text-shadow:0 0 10px #38bdf8}
+.start-btn:hover{
+  filter:brightness(90%);
 }
 
 /* ===== MAIN APP ===== */
 #app{
-display:none;
-grid-template-columns:360px 1fr;
-gap:14px;padding:14px;
-overflow:auto;height:100vh
+  display:none;
+  padding:14px;
 }
 
-.panel{border:1px solid #1e293b;border-radius:14px;padding:12px}
-video{width:100%;border-radius:12px}
+.main{
+  display:grid;
+  grid-template-columns:360px 1fr;
+  gap:14px;
+}
 
-/* ===== BUTTONS ===== */
+.panel{
+  border:1px solid #1e293b;
+  border-radius:14px;
+  padding:12px;
+}
+
+video{
+  width:100%;
+  border-radius:12px;
+}
+
 button{
-width:100%;padding:8px;
-border:none;border-radius:8px;
-background:#2563eb;color:white;
-font-size:14px;cursor:pointer;
-margin-top:6px;
-transition:transform .2s,box-shadow .25s
-}
-
-button:hover{
-transform:translateY(-2px);
-box-shadow:0 0 12px rgba(37,99,235,.6)
+  width:100%;
+  padding:8px;
+  margin-top:6px;
+  border:none;
+  border-radius:8px;
+  background:#2563eb;
+  color:white;
+  cursor:pointer;
 }
 
 .small{background:#334155}
 .danger{background:#dc2626}
 
-/* ===== CARDS ===== */
 input{
-width:100%;padding:6px;
-border-radius:6px;border:none;margin-top:6px
-}
-
-.card{
-border:1px solid #1e293b;
-border-radius:10px;padding:8px
+  width:100%;
+  padding:6px;
+  border-radius:6px;
+  border:none;
+  margin-top:6px;
 }
 
 .grid{
-display:grid;
-grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
-gap:10px
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  gap:10px;
 }
 
-.barbg{background:#1e293b;border-radius:6px;overflow:hidden}
-.bar{height:14px;background:#22c55e;transition:width .2s}
+.card{
+  border:1px solid #1e293b;
+  border-radius:10px;
+  padding:8px;
+}
+
+.barbg{
+  background:#1e293b;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+.bar{
+  height:14px;
+  background:#22c55e;
+}
 </style>
 </head>
 
@@ -90,28 +122,30 @@ gap:10px
 
 <!-- START SCREEN -->
 <div id="start">
-<h2>SELECT DEVICE</h2>
-<button onclick="startApp()">💻 Computer</button>
-<button onclick="startApp()">📱 Phone</button>
-<button onclick="startApp()">📱 iPad</button>
+  <h2>Select your device</h2>
+  <button class="start-btn" onclick="startApp()">💻 Computer</button>
+  <button class="start-btn" onclick="startApp()">📱 Phone</button>
+  <button class="start-btn" onclick="startApp()">📱 iPad</button>
 </div>
-
-<header>🤖 Image Classifier</header>
 
 <!-- MAIN APP -->
 <div id="app">
-<div class="panel">
-<video id="video" autoplay playsinline></video>
-<button onclick="addClass()">➕ Add Class</button>
-<button onclick="train()">🚀 Train</button>
-<button onclick="startLive()">📹 Live</button>
-</div>
+  <h2 style="text-align:center">🤖 Image Classifier</h2>
 
-<div class="panel">
-<div id="classes" class="grid"></div>
-<h3 id="top">Prediction: —</h3>
-<div id="results"></div>
-</div>
+  <div class="main">
+    <div class="panel">
+      <video id="video" autoplay playsinline></video>
+      <button onclick="addClass()">➕ Add Class</button>
+      <button onclick="train()">🚀 Train</button>
+      <button onclick="startLive()">📹 Live</button>
+    </div>
+
+    <div class="panel">
+      <div id="classes" class="grid"></div>
+      <h3 id="top">Prediction: —</h3>
+      <div id="results"></div>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -122,64 +156,62 @@ const classesDiv=document.getElementById("classes")
 const results=document.getElementById("results")
 const top=document.getElementById("top")
 
-let classes=[], net, model, live=false
+let classes=[]
+let net, model, live=false
 
 function startApp(){
-start.style.opacity="0"
-setTimeout(()=>{
-start.style.display="none"
-app.style.display="grid"
-},300)
+  start.remove()           // 🔥 HARD REMOVE (cannot bug)
+  app.style.display="block"
 
-navigator.mediaDevices.getUserMedia({video:true})
-.then(s=>video.srcObject=s)
+  navigator.mediaDevices.getUserMedia({video:true})
+    .then(s=>video.srcObject=s)
 
-addClass()
-addClass()
+  addClass()
+  addClass()
 }
 
 function addClass(){
-classes.push({name:"Class "+(classes.length+1),images:[]})
-render()
+  classes.push({name:"Class "+(classes.length+1),images:[]})
+  render()
 }
 
 function render(){
-classesDiv.innerHTML=""
-classes.forEach((c,i)=>{
-classesDiv.innerHTML+=`
-<div class="card">
-<input value="${c.name}" oninput="classes[${i}].name=this.value">
-<button onclick="capture(${i})">📸 Capture</button>
-<button onclick="document.getElementById('up${i}').click()">📁 Upload</button>
-<input id="up${i}" type="file" hidden multiple onchange="upload(event,${i})">
-<button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
-<button class="small" onclick="wipeAll(${i})">🧹 Wipe All</button>
-<button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
-<div>${c.images.length} images</div>
-</div>`
-})
+  classesDiv.innerHTML=""
+  classes.forEach((c,i)=>{
+    classesDiv.innerHTML+=`
+    <div class="card">
+      <input value="${c.name}" oninput="classes[${i}].name=this.value">
+      <button onclick="capture(${i})">📸 Capture</button>
+      <button onclick="document.getElementById('up${i}').click()">📁 Upload</button>
+      <input id="up${i}" type="file" hidden multiple onchange="upload(event,${i})">
+      <button class="small" onclick="deleteLast(${i})">↩ Delete Last</button>
+      <button class="small" onclick="wipeAll(${i})">🧹 Wipe All</button>
+      <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
+      <div>${c.images.length} images</div>
+    </div>`
+  })
 }
 
 function capture(i){
-const c=document.createElement("canvas")
-c.width=224;c.height=224
-c.getContext("2d").drawImage(video,0,0,224,224)
-classes[i].images.push(c)
-render()
+  const c=document.createElement("canvas")
+  c.width=224;c.height=224
+  c.getContext("2d").drawImage(video,0,0,224,224)
+  classes[i].images.push(c)
+  render()
 }
 
 function upload(e,i){
-for(const f of e.target.files){
-const img=new Image()
-img.onload=()=>{
-const c=document.createElement("canvas")
-c.width=224;c.height=224
-c.getContext("2d").drawImage(img,0,0,224,224)
-classes[i].images.push(c)
-render()
-}
-img.src=URL.createObjectURL(f)
-}
+  for(const f of e.target.files){
+    const img=new Image()
+    img.onload=()=>{
+      const c=document.createElement("canvas")
+      c.width=224;c.height=224
+      c.getContext("2d").drawImage(img,0,0,224,224)
+      classes[i].images.push(c)
+      render()
+    }
+    img.src=URL.createObjectURL(f)
+  }
 }
 
 function deleteLast(i){classes[i].images.pop();render()}
@@ -187,59 +219,20 @@ function wipeAll(i){classes[i].images=[];render()}
 function deleteClass(i){classes.splice(i,1);render()}
 
 async function train(){
-if(!net) net=await mobilenet.load()
-results.innerText="Training..."
-const xs=[],ys=[]
-classes.forEach((c,i)=>{
-c.images.forEach(img=>{
-const t=tf.browser.fromPixels(img).expandDims(0).toFloat().div(255)
-const e=net.infer(t,true)
-xs.push(e);ys.push(i);t.dispose()
-})
-})
-const x=tf.concat(xs)
-const y=tf.tensor1d(ys,"int32")
-model=tf.sequential()
-model.add(tf.layers.dense({inputShape:[x.shape[1]],units:100,activation:"relu"}))
-model.add(tf.layers.dense({units:classes.length,activation:"softmax"}))
-model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy"})
-await model.fit(x,y,{epochs:20,callbacks:{
-onTrainEnd:()=>{results.innerText="✅ Training Complete";setupBars()}
-}})
-}
-
-function setupBars(){
-results.innerHTML=""
-classes.forEach((c,i)=>{
-results.innerHTML+=`
-<div>${c.name}</div>
-<div class="barbg"><div id="bar${i}" class="bar"></div></div>`
-})
-}
-
-function startLive(){if(model){live=true;loop()}}
-
-function loop(){
-if(!live)return
-predict(video)
-requestAnimationFrame(loop)
-}
-
-function predict(src){
-const c=document.createElement("canvas")
-c.width=224;c.height=224
-c.getContext("2d").drawImage(src,0,0,224,224)
-const t=tf.browser.fromPixels(c).expandDims(0).toFloat().div(255)
-const e=net.infer(t,true)
-const p=model.predict(e).dataSync()
-let best=0
-p.forEach((v,i)=>{
-document.getElementById("bar"+i).style.width=(v*100)+"%"
-if(v>p[best])best=i
-})
-top.innerText="Prediction: "+classes[best].name
-t.dispose();e.dispose()
-}
-</script>
-</body>
-</html>
+  if(!net) net=await mobilenet.load()
+  results.innerText="Training..."
+  const xs=[],ys=[]
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0).toFloat().div(255)
+      const e=net.infer(t,true)
+      xs.push(e);ys.push(i);t.dispose()
+    })
+  })
+  const x=tf.concat(xs)
+  const y=tf.tensor1d(ys,"int32")
+  model=tf.sequential()
+  model.add(tf.layers.dense({inputShape:[x.shape[1]],units:100,activation:"relu"}))
+  model.add(tf.layers.dense({units:classes.length,activation:"softmax"}))
+  model.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy"})
+  await model.fit(x,y,{epochs:20
