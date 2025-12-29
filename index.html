@@ -11,30 +11,22 @@
 body{margin:0;font-family:system-ui;background:#0b1220;color:white}
 header{text-align:center;padding:16px;font-size:24px;font-weight:600}
 .main{display:grid;grid-template-columns:360px 1fr;gap:16px;padding:16px}
-.panel{background:#020617;border-radius:14px;padding:14px;box-shadow:0 0 20px #0008}
-video{width:100%;border-radius:12px;margin-bottom:8px}
+.panel{background:#020617;border-radius:14px;padding:14px}
+video{width:100%;border-radius:12px}
 
-button{
-  width:100%;padding:10px;margin-top:6px;
-  border:none;border-radius:12px;
-  background:#2563eb;color:white;cursor:pointer;
-  transition:.2s ease
-}
-button:hover{filter:brightness(90%);box-shadow:0 0 12px #2563eb88;transform:translateY(-1px)}
+button{width:100%;padding:10px;margin-top:6px;border:none;border-radius:12px;background:#2563eb;color:white;cursor:pointer;transition:.2s}
+button:hover{filter:brightness(90%);box-shadow:0 0 12px #2563eb88}
 .small{background:#334155}
 .danger{background:#7f1d1d}
-.small:hover{box-shadow:0 0 10px #64748b88}
-.danger:hover{box-shadow:0 0 10px #ef444488}
 
 input{width:100%;padding:8px;border-radius:10px;border:none;margin-top:6px}
 .card{background:#020617;border:1px solid #1e293b;border-radius:12px;padding:10px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px}
-.count{font-size:12px;opacity:.7;margin-top:4px}
+.count{font-size:12px;opacity:.7}
 
 .barbg{background:#1e293b;border-radius:6px;overflow:hidden;margin-bottom:8px}
 .bar{height:14px;width:0%;background:#22c55e;transition:width .2s}
 
-.progressBox{margin-top:10px}
 .progressBarBg{background:#1e293b;border-radius:6px;overflow:hidden;height:14px}
 .progressBar{height:100%;width:0%;background:#22c55e;transition:width .2s}
 .time{font-size:12px;opacity:.7;margin-top:4px}
@@ -135,10 +127,11 @@ async function train(){
 
   const xs=[],ys=[]
   results.innerHTML=`
-  <div class="progressBox">
-    <div class="progressBarBg"><div id="prog" class="progressBar"></div></div>
+    <div class="progressBarBg">
+      <div id="prog" class="progressBar"></div>
+    </div>
     <div id="time" class="time">Starting…</div>
-  </div>`
+  `
 
   classes.forEach((c,i)=>c.images.forEach(img=>{
     const t=tf.browser.fromPixels(img).expandDims(0)
@@ -161,18 +154,22 @@ async function train(){
   })
 
   const EPOCHS=20
+
   await classifier.fit(x,y,{
     epochs:EPOCHS,
     callbacks:{
-      onEpochEnd:(e,l)=>{
+      onEpochEnd:async(e,l)=>{
         if(stopFlag){classifier.stopTraining=true;results.innerHTML="🛑 Training stopped";return}
         document.getElementById("prog").style.width=((e+1)/EPOCHS*100)+"%"
         const elapsed=(Date.now()-startTime)/1000
         const remain=(elapsed/(e+1))*(EPOCHS-(e+1))
         document.getElementById("time").textContent=
-          `Epoch ${e+1}/${EPOCHS} • ${(l.acc*100).toFixed(1)}% • ~${remain.toFixed(1)}s left`
+          `Epoch ${e+1}/${EPOCHS} • ${(l.accuracy*100).toFixed(1)}% • ~${remain.toFixed(1)}s left`
+        await tf.nextFrame()   // 🔥 THIS FIXES IT
       },
-      onTrainEnd:()=>{if(!stopFlag){results.innerHTML="✅ Training complete";setupBars()}}
+      onTrainEnd:()=>{
+        if(!stopFlag){results.innerHTML="✅ Training complete";setupBars()}
+      }
     }
   })
 
@@ -191,22 +188,13 @@ function setupBars(){
 }
 
 function startLive(){
-  if(!classifier){
-    alert("Train first")
-    return
-  }
-  live = true
-  lastPredict = 0
-  requestAnimationFrame(loop)
+  if(!classifier){alert("Train first");return}
+  live=true;lastPredict=0;requestAnimationFrame(loop)
 }
 
-function loop(time){
-  if(!live) return
-
-  if(time - lastPredict > FPS){
-    predict(video)
-    lastPredict = time
-  }
+function loop(t){
+  if(!live)return
+  if(t-lastPredict>FPS){predict(video);lastPredict=t}
   requestAnimationFrame(loop)
 }
 
