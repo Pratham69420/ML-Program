@@ -1,153 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 ML Image Classifier</title>
+<title>Simple Image Classifier</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-:root{
-  --bg:#0b1220;
-  --panel:#020617;
-  --accent:#3b82f6;
-  --danger:#ef4444;
-  --muted:#1e293b;
-  --glow:0 0 14px rgba(59,130,246,.6);
-}
-*{box-sizing:border-box}
 body{
-  margin:0;
-  font-family:system-ui;
-  background:var(--bg);
+  background:#0b1220;
   color:white;
-}
-header{
-  padding:14px;
-  text-align:center;
-  font-size:22px;
-  font-weight:600;
-}
-.main{
-  display:grid;
-  grid-template-columns:360px 1fr;
-  gap:14px;
-  padding:14px;
-}
-.panel{
-  background:var(--panel);
-  border-radius:16px;
-  padding:14px;
-  box-shadow:0 0 30px #000;
-}
-video{
-  width:100%;
-  border-radius:12px;
-  box-shadow:var(--glow);
+  font-family:system-ui;
+  padding:20px;
 }
 button{
+  padding:10px;
+  margin:6px 0;
   width:100%;
-  padding:8px;
-  margin-top:6px;
   border:none;
   border-radius:10px;
-  background:var(--accent);
+  background:#3b82f6;
   color:white;
   cursor:pointer;
-  transition:.2s;
 }
-button:hover{
-  filter:brightness(1.15);
-  box-shadow:var(--glow);
-}
-.danger{background:var(--danger)}
+button:hover{filter:brightness(1.15)}
 input{
   width:100%;
-  padding:7px;
-  margin-top:6px;
+  padding:8px;
+  margin:6px 0;
   border-radius:8px;
   border:none;
-  background:var(--muted);
-  color:white;
 }
 .progressbg{
   background:#1e293b;
   height:14px;
   border-radius:10px;
   overflow:hidden;
-  margin-top:8px;
+  margin-top:6px;
 }
 .progress{
   height:14px;
   width:0;
-  background:linear-gradient(90deg,#3b82f6,#22c55e);
+  background:#22c55e;
   transition:.3s;
+}
+.card{
+  background:#020617;
+  padding:14px;
+  border-radius:14px;
+  margin-top:14px;
 }
 .barbg{
   background:#1e293b;
-  height:12px;
-  border-radius:6px;
-  margin:6px 0;
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:6px;
 }
 .bar{
-  height:12px;
-  width:0;
+  height:18px;
   background:#22c55e;
-  border-radius:6px;
-  transition:.2s;
+  width:0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding-right:6px;
+  font-size:12px;
+  transition:.3s;
+}
+.label{
+  font-size:14px;
+  margin-top:10px;
 }
 </style>
 </head>
 
 <body>
 
-<header>🤖 Grade 7 Machine Learning Image Classifier</header>
+<h2>🧠 Simple ML Image Classifier</h2>
 
-<div class="main">
-  <div class="panel">
-    <video id="video" autoplay playsinline></video>
+<input id="className" placeholder="Class name">
+<button onclick="addClass()">➕ Add Class</button>
 
-    <input id="className" placeholder="Class name">
-    <button onclick="addClass()">➕ Add Class</button>
+<input type="file" multiple accept="image/*" onchange="addImages(event)">
 
-    <input type="file" multiple accept="image/*" onchange="addImages(event)">
+<button onclick="train()">🚀 Train Model</button>
 
-    <button onclick="train()">🚀 Train Model</button>
-    <button class="danger" onclick="stopTraining()">🛑 Stop Training</button>
-    <button onclick="startLive()">📹 Live Test</button>
+<div class="progressbg"><div id="prog" class="progress"></div></div>
+<div id="status"></div>
 
-    <input type="file" accept="image/*" onchange="testImage(event)">
-  </div>
+<h3>Test an Image</h3>
+<input type="file" accept="image/*" onchange="testImage(event)">
 
-  <div class="panel">
-    <h3>Training</h3>
-    <div id="results"></div>
-
-    <h3>Predictions</h3>
-    <div id="bars"></div>
-  </div>
-</div>
+<div id="results" class="card"></div>
 
 <script>
-let net,classifier,classes=[],currentClass=0
-let live=false,lastPredict=0,stopFlag=false
-const FPS=200
-
-navigator.mediaDevices.getUserMedia({video:true})
-.then(s=>video.srcObject=s)
+let net, classifier
+let classes=[]
+let currentClass=0
 
 function addClass(){
-  const n=className.value.trim()
-  if(!n) return alert("name needed")
-  classes.push({name:n,images:[]})
+  const name=className.value.trim()
+  if(!name) return alert("Enter class name")
+  classes.push({name, images:[]})
   currentClass=classes.length-1
   className.value=""
-  updateBars()
 }
 
 function addImages(e){
-  if(!classes.length) return alert("add class first")
+  if(!classes.length) return alert("Add a class first")
   for(const f of e.target.files){
     const img=new Image()
     img.onload=()=>classes[currentClass].images.push(img)
@@ -155,27 +116,15 @@ function addImages(e){
   }
 }
 
-function updateBars(){
-  bars.innerHTML=""
-  classes.forEach(c=>{
-    bars.innerHTML+=`
-      <div>${c.name}</div>
-      <div class="barbg"><div class="bar"></div></div>`
-  })
-}
-
 async function train(){
-  stopFlag=false
+  if(classes.length<2) return alert("Need at least 2 classes")
   if(classes.some(c=>c.images.length<5))
-    return alert("❌ each class needs 5+ images")
+    return alert("Each class needs 5+ images")
 
-  results.innerHTML=`
-    <div class="progressbg"><div id="prog" class="progress"></div></div>
-    <div id="time"></div>`
-
+  status.textContent="Loading model..."
   if(!net) net=await mobilenet.load()
 
-  const xs=[],ys=[]
+  const xs=[], ys=[]
   classes.forEach((c,i)=>{
     c.images.forEach(img=>{
       const t=tf.browser.fromPixels(img).expandDims(0)
@@ -199,50 +148,40 @@ async function train(){
     loss:"sparseCategoricalCrossentropy"
   })
 
-  const E=20
-  for(let i=0;i<E;i++){
-    if(stopFlag){results.innerHTML="🛑 stopped";return}
-    await classifier.fit(x,y,{epochs:1,shuffle:true})
-    prog.style.width=((i+1)/E*100)+"%"
-    time.textContent=`Epoch ${i+1}/${E}`
-    await tf.nextFrame()
+  for(let i=0;i<20;i++){
+    await classifier.fit(x,y,{epochs:1})
+    prog.style.width=((i+1)/20*100)+"%"
   }
 
-  results.innerHTML="✅ Training complete"
+  status.textContent="✅ Training complete"
   x.dispose();y.dispose();xs.forEach(t=>t.dispose())
 }
 
-function stopTraining(){stopFlag=true}
-
-function startLive(){
-  if(!classifier) return alert("train first")
-  live=true
-  requestAnimationFrame(loop)
-}
-
-function loop(t){
-  if(!live) return
-  if(t-lastPredict>FPS){
-    predict(video)
-    lastPredict=t
-  }
-  requestAnimationFrame(loop)
-}
-
-function predict(src){
-  const img=tf.browser.fromPixels(src).expandDims(0)
-  const emb=net.infer(img,true)
-  const p=classifier.predict(emb).dataSync()
-  document.querySelectorAll(".bar")
-    .forEach((b,i)=>b.style.width=(p[i]*100)+"%")
-  img.dispose();emb.dispose()
-}
-
 function testImage(e){
-  if(!classifier) return alert("train first")
+  if(!classifier) return alert("Train first")
   const img=new Image()
   img.onload=()=>predict(img)
   img.src=URL.createObjectURL(e.target.files[0])
+}
+
+function predict(img){
+  const t=tf.browser.fromPixels(img).expandDims(0)
+  const e=net.infer(t,true)
+  const p=classifier.predict(e).dataSync()
+
+  results.innerHTML="<h3>Prediction</h3>"
+
+  p.forEach((v,i)=>{
+    results.innerHTML+=`
+      <div class="label">${classes[i].name}</div>
+      <div class="barbg">
+        <div class="bar" style="width:${(v*100).toFixed(1)}%">
+          ${(v*100).toFixed(1)}%
+        </div>
+      </div>`
+  })
+
+  t.dispose();e.dispose()
 }
 </script>
 
