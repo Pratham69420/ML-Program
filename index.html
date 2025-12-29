@@ -96,4 +96,147 @@ const PRESETS=[
 ]
 
 function addClass(){
-  const name=classInput.valu
+  const name=classInput.value.trim()
+  if(!name) return alert("Enter class name")
+  classes.push({name,images:[],bg:PRESETS[0].bg,text:PRESETS[0].text})
+  classInput.value=""
+  render()
+}
+
+function deleteClass(i){
+  classes.splice(i,1)
+  render()
+}
+
+function wipeImages(i){
+  classes[i].images=[]
+  render()
+}
+
+function deleteLastImage(i){
+  classes[i].images.pop()
+  render()
+}
+
+function setPreset(ci,pi){
+  classes[ci].bg=PRESETS[pi].bg
+  classes[ci].text=PRESETS[pi].text
+  render()
+}
+
+function setCustomBG(i,v){classes[i].bg=v;render()}
+function setCustomText(i,v){classes[i].text=v;render()}
+
+function render(){
+  classList.innerHTML=""
+  classes.forEach((c,i)=>{
+    classList.innerHTML+=`
+    <div class="card">
+      <b style="color:${c.text}">${c.name}</b>
+      <div class="small">${c.images.length} images</div>
+
+      <input type="file" accept="image/*" multiple
+        onchange="addImages(event,${i})">
+
+      <div class="row">
+        <button onclick="deleteLastImage(${i})">Delete Last</button>
+        <button onclick="wipeImages(${i})">Wipe Images</button>
+        <button onclick="deleteClass(${i})">Delete Class</button>
+      </div>
+
+      <div class="palette">
+        ${PRESETS.map((p,pi)=>`
+          <div class="swatch ${c.bg===p.bg?'active':''}"
+            style="background:linear-gradient(135deg,${p.bg} 50%,${p.text} 50%)"
+            onclick="setPreset(${i},${pi})"></div>
+        `).join("")}
+      </div>
+
+      <div class="row">
+        <input type="color" value="${c.bg}" onchange="setCustomBG(${i},this.value)">
+        <input type="color" value="${c.text}" onchange="setCustomText(${i},this.value)">
+      </div>
+    </div>`
+  })
+}
+
+function addImages(e,i){
+  for(const f of e.target.files){
+    const img=new Image()
+    img.onload=()=>{classes[i].images.push(img);render()}
+    img.src=URL.createObjectURL(f)
+  }
+}
+
+async function train(){
+  if(classes.length<2) return alert("Need 2+ classes")
+  if(classes.some(c=>c.images.length<5))
+    return alert("Each class needs 5+ images")
+
+  status.textContent="Loading model..."
+  if(!net) net=await mobilenet.load()
+
+  const xs=[], ys=[]
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0)
+      xs.push(net.infer(t,true))
+      ys.push(i)
+      t.dispose()
+    })
+  })
+
+  const x=tf.concat(xs)
+  const y=tf.tensor1d(ys,"int32")
+
+  classifier=tf.sequential()
+  classifier.add(tf.layers.dense({
+    inputShape:[1024],
+    units:classes.length,
+    activation:"softmax"
+  }))
+  classifier.compile({
+    optimizer:tf.train.adam(0.0003),
+    loss:"sparseCategoricalCrossentropy"
+  })
+
+  for(let i=0;i<20;i++){
+    await classifier.fit(x,y,{epochs:1})
+    prog.style.width=((i+1)/20*100)+"%"
+  }
+
+  status.textContent="✅ Training complete"
+  x.dispose();y.dispose();xs.forEach(t=>t.dispose())
+}
+
+function testImage(e){
+  if(!classifier) return alert("Train first")
+  const img=new Image()
+  img.onload=()=>predict(img)
+  img.src=URL.createObjectURL(e.target.files[0])
+}
+
+function predict(img){
+  const t=tf.browser.fromPixels(img).expandDims(0)
+  const e=net.infer(t,true)
+  const p=classifier.predict(e).dataSync()
+  results.innerHTML=""
+  p.forEach((v,i)=>{
+    const pct=(v*100).toFixed(1)
+    results.innerHTML+=`
+      <div>${classes[i].name}</div>
+      <div class="barbg">
+        <div class="bar"
+          style="width:${pct}%;
+                 background:${classes[i].bg};
+                 color:${classes[i].text}">
+          ${pct}%
+        </div>
+      </div>`
+  })
+  t.dispose();e.dispose()
+}
+</script>
+
+</body>
+</html>
