@@ -49,7 +49,6 @@ button:hover,input[type=file]:hover{filter:brightness(1.1);box-shadow:0 0 12px c
 let net, classifier;
 let classes=[];
 
-// Presets
 const PRESETS=[
   {name:"Green", shades:["#1f4d2b","#236635","#2b7a3b"]},
   {name:"Blue", shades:["#1e40af","#1e3a8a","#1e3fbb"]},
@@ -62,7 +61,6 @@ document.getElementById("addBtn").onclick=()=>{addClass();};
 document.getElementById("trainBtn").onclick=()=>{train();};
 document.getElementById("testInput").onchange=(e)=>{testImage(e);};
 
-// Close all dropdowns when clicking outside
 window.onclick=(e)=>{
   if(!e.target.matches('.dropbtn')){
     document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
@@ -92,7 +90,7 @@ function render(){
     card.style.background=color+"33";
 
     let dropdownOptions = PRESETS.map((p,pi)=>
-      `<a style="background:${p.shades[1]}; color:white" onclick="setPreset(${i},${pi})">${p.name}</a>`
+      `<a style="background:${p.shades[1]}; color:white" onclick="setPreset(${i},${pi}); this.parentElement.parentElement.querySelector('.dropbtn').textContent='${p.name}'; this.parentElement.parentElement.querySelector('.dropbtn').style.background='${p.shades[1]}'">${p.name}</a>`
     ).join("");
 
     card.innerHTML=`
@@ -127,17 +125,6 @@ function render(){
       e.stopPropagation();
       dropdown.classList.toggle("show");
     };
-
-    const options=card.querySelectorAll(".dropdown-content a");
-    options.forEach((opt,pi)=>{
-      opt.onclick=(e)=>{
-        e.stopPropagation();
-        setPreset(i,pi);
-        dropbtn.textContent=PRESETS[pi].name;
-        dropbtn.style.background=PRESETS[pi].shades[1];
-        dropdown.classList.remove("show");
-      };
-    });
   });
 }
 
@@ -149,11 +136,9 @@ function addImages(e,i){
   filesToAdd.forEach(f=>{
     const img=new Image();
     img.onload=()=>{
-      // Resize to 224x224 to save memory
       const canvas=document.createElement("canvas");
       const ctx=canvas.getContext("2d");
-      canvas.width=224;
-      canvas.height=224;
+      canvas.width=224; canvas.height=224;
       ctx.drawImage(img,0,0,224,224);
       const resizedImg=new Image();
       resizedImg.onload=()=>{
@@ -169,37 +154,36 @@ function addImages(e,i){
 async function train(){
   if(classes.length<2) return alert("Need 2+ classes");
   if(classes.some(c=>c.images.length<5)) return alert("Each class needs 5+ images");
+
   document.getElementById("status").textContent="Loading model...";
   if(!net) net = await mobilenet.load();
 
-  const xs=[], ys=[];
-  classes.forEach((c,i)=>{
-    c.images.forEach(img=>{
-      tf.tidy(()=>{
-        const t = tf.browser.fromPixels(img).resizeBilinear([224,224]).expandDims(0);
-        xs.push(net.infer(t,true));
-        ys.push(i);
-      });
-    });
-  });
-
-  const x = tf.concat(xs);
-  const y = tf.tensor1d(ys, "int32");
-
   classifier = tf.sequential();
   classifier.add(tf.layers.dense({inputShape:[1024], units: classes.length, activation:"softmax"}));
-  classifier.compile({optimizer: tf.train.adam(0.0003), loss: "sparseCategoricalCrossentropy"});
+  classifier.compile({optimizer: tf.train.adam(0.0003), loss:"sparseCategoricalCrossentropy"});
 
   const progBar = document.getElementById("prog");
+  progBar.style.width = "0%";
+  const epochs = 10;
 
-  for(let i=0; i<20; i++){
-    await classifier.fit(x, y, {epochs:1});
-    progBar.style.width = ((i+1)/20*100) + "%";
-    await new Promise(r => setTimeout(r, 10)); // allow browser to repaint
+  for(let e=0; e<epochs; e++){
+    for(let ci=0; ci<classes.length; ci++){
+      const imgs = classes[ci].images.slice(0,20); // max 20 per class
+      for(const img of imgs){
+        await tf.tidy(async ()=>{
+          const t = tf.browser.fromPixels(img).resizeBilinear([224,224]).expandDims(0);
+          const embedding = net.infer(t,true);
+          const y = tf.tensor1d([ci],"int32");
+          await classifier.fit(embedding, y, {epochs:1, verbose:0});
+          t.dispose(); embedding.dispose(); y.dispose();
+        });
+      }
+    }
+    progBar.style.width = ((e+1)/epochs*100) + "%";
+    await new Promise(r=>setTimeout(r,50));
   }
 
   document.getElementById("status").textContent = "✅ Training complete";
-  x.dispose(); y.dispose(); xs.forEach(t => t.dispose());
 }
 
 function testImage(e){
