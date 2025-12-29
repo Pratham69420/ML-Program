@@ -41,12 +41,13 @@ select{appearance:none; -webkit-appearance:none; -moz-appearance:none; padding:6
 let net, classifier;
 let classes=[];
 
+// Adjusted shades for better visibility
 const PRESETS=[
   {name:"Green", shades:["#1f4d2b","#236635","#2b7a3b"]},
   {name:"Blue", shades:["#1e40af","#1e3a8a","#1e3fbb"]},
-  {name:"Orange", shades:["#8a3b0b","#b45309","#c76a0d"]},
-  {name:"Red", shades:["#7a1a1a","#991b1b","#b91c1c"]},
-  {name:"Purple", shades:["#4b1073","#6b21a8","#7e22ce"]}
+  {name:"Orange", shades:["#9a4212","#b45309","#c76a0d"]}, // darker middle shade
+  {name:"Red", shades:["#6a1010","#991b1b","#b91c1c"]},     // darker middle shade
+  {name:"Purple", shades:["#3e0f5c","#6b21a8","#7e22ce"]}  // darker middle shade
 ];
 
 function addHoverGlow(el){
@@ -80,9 +81,6 @@ function render(){
     card.className="card";
     card.style.background=color+"33";
 
-    // gradient string for select background
-    const gradientStr = PRESETS.map(p=>p.shades[1]).join(',');
-    
     card.innerHTML=`
       <div class="classname" style="background:${color}; color:white">${c.name}</div>
       <div class="small">${c.images.length} images</div>
@@ -93,8 +91,8 @@ function render(){
         <button style="background:${color}; color:white">Delete Class</button>
       </div>
       <div class="row">
-        <select style="background:linear-gradient(to right, ${PRESETS.map(p=>p.shades[1]).join(',')}); color:white">
-          ${PRESETS.map((p,pi)=>`<option value="${pi}">${p.name}</option>`).join("")}
+        <select style="background:${color}; color:white">
+          ${PRESETS.map((p,pi)=>`<option value="${pi}" style="background:${p.shades[1]}; color:white">${p.name}</option>`).join("")}
         </select>
       </div>`;
     classList.appendChild(card);
@@ -112,7 +110,7 @@ function render(){
     const sel=card.querySelector("select");
     sel.value=c.preset;
     sel.onchange=()=>setPreset(i,sel.value);
-    // remove hover effect for select
+    // no hover effect on dropdown
   });
 }
 
