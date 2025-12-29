@@ -30,12 +30,8 @@ input.classNameInput{
   width:100%;
   text-align:left;
 }
-button, input[type=file], select{
+button,input[type=file],select{
   outline:none;
-}
-button:hover, input[type=file]:hover, select:hover{
-  filter:brightness(1.1);
-  box-shadow:0 0 12px currentColor;
 }
 .card{
   padding:14px;
@@ -76,8 +72,6 @@ button:hover, input[type=file]:hover, select:hover{
   font-weight:bold;
   text-align:left;
 }
-select{color:white;}
-option{color:white;}
 </style>
 </head>
 <body>
@@ -85,21 +79,21 @@ option{color:white;}
 <h2>🧠 Easy Image Classifier</h2>
 
 <input id="classInput" class="classNameInput" placeholder="Class name">
-<button id="addBtn" style="background:#3b82f6; color:white" onclick="addClass()">➕ Add Class</button>
+<button id="addBtn" style="background:#3b82f6; color:white">➕ Add Class</button>
 
 <div id="classList"></div>
 
-<button id="trainBtn" style="background:#3b82f6; color:white" onclick="train()">🚀 Train Model</button>
+<button id="trainBtn" style="background:#3b82f6; color:white">🚀 Train Model</button>
 <div class="progressbg"><div id="prog" class="progress"></div></div>
 <div id="status"></div>
 
 <h3>Test Image</h3>
-<input id="testInput" type="file" accept="image/*" style="background:#3b82f6; color:white" onchange="testImage(event)">
+<input id="testInput" type="file" accept="image/*" style="background:#3b82f6; color:white">
 <div id="results"></div>
 
 <script>
-let net, classifier
-let classes=[]
+let net, classifier;
+let classes=[];
 
 const PRESETS=[
   {name:"Green", shades:["#1f4d2b","#236635","#2b7a3b"]},
@@ -107,122 +101,142 @@ const PRESETS=[
   {name:"Orange", shades:["#b45309","#c76a0d","#d97706"]},
   {name:"Red", shades:["#991b1b","#b91c1c","#dc2626"]},
   {name:"Purple", shades:["#6b21a8","#7e22ce","#9333ea"]}
-]
+];
+
+// Helper for hover glow
+function addHoverGlow(el){
+  el.onmouseover=()=>el.style.boxShadow=`0 0 12px ${el.style.backgroundColor}`;
+  el.onmouseout=()=>el.style.boxShadow=`none`;
+}
+
+document.getElementById("addBtn").onclick=()=>{addClass();};
+document.getElementById("trainBtn").onclick=()=>{train();};
+document.getElementById("testInput").onchange=(e)=>{testImage(e);};
 
 function addClass(){
-  const name=document.getElementById("classInput").value.trim()
-  if(!name) return alert("Enter class name")
-  classes.push({name,images:[],preset:0,shade:1})
-  document.getElementById("classInput").value=""
-  render()
+  const name=document.getElementById("classInput").value.trim();
+  if(!name) return alert("Enter class name");
+  classes.push({name,images:[],preset:0,shade:1});
+  document.getElementById("classInput").value="";
+  render();
 }
 
-function deleteClass(i){classes.splice(i,1);render()}
-function wipeImages(i){classes[i].images=[];render()}
-function deleteLastImage(i){classes[i].images.pop();render()}
-function setPreset(ci,pi){
-  classes[ci].preset=pi
-  classes[ci].shade=1
-  render()
-}
+function deleteClass(i){classes.splice(i,1);render();}
+function wipeImages(i){classes[i].images=[];render();}
+function deleteLastImage(i){classes[i].images.pop();render();}
+function setPreset(ci,pi){classes[ci].preset=pi; classes[ci].shade=1; render();}
 
 function render(){
-  const classList=document.getElementById("classList")
-  classList.innerHTML=""
+  const classList=document.getElementById("classList");
+  classList.innerHTML="";
   classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].shades[c.shade]
-    classList.innerHTML+=`
-    <div class="card" style="background:${color}33">
+    const color=PRESETS[c.preset].shades[c.shade];
+    const card=document.createElement("div");
+    card.className="card";
+    card.style.background=color+"33";
+    card.innerHTML=`
       <div class="classname" style="background:${color}; color:white">${c.name}</div>
       <div class="small">${c.images.length} images</div>
-
-      <input type="file" accept="image/*" multiple style="background:${color}; color:white; width:100%" onchange="addImages(event,${i})">
-
+      <input type="file" accept="image/*" multiple style="background:${color}; color:white; width:100%">
       <div class="row">
-        <button style="background:${color}; color:white" onclick="deleteLastImage(${i})">Delete Last</button>
-        <button style="background:${color}; color:white" onclick="wipeImages(${i})">Wipe All</button>
-        <button style="background:${color}; color:white" onclick="deleteClass(${i})">Delete Class</button>
+        <button style="background:${color}; color:white">Delete Last</button>
+        <button style="background:${color}; color:white">Wipe All</button>
+        <button style="background:${color}; color:white">Delete Class</button>
       </div>
-
       <div class="row">
-        <select style="background:${color}; color:white" onchange="setPreset(${i},this.value)">
-          ${PRESETS.map((p,pi)=>{
-            return `<option value="${pi}" style="background:${p.shades[1]}; color:white">${p.name}</option>`
-          }).join("")}
+        <select style="background:${color}; color:white">
+          ${PRESETS.map((p,pi)=>`<option value="${pi}" style="background:${p.shades[1]}; color:white">${p.name}</option>`).join("")}
         </select>
-      </div>
-    </div>`
-  })
+      </div>`;
+    classList.appendChild(card);
+
+    // Add event listeners
+    const fileInput=card.querySelector("input[type=file]");
+    fileInput.onchange=(e)=>addImages(e,i);
+    addHoverGlow(fileInput);
+
+    const btns=card.querySelectorAll("button");
+    btns[0].onclick=()=>deleteLastImage(i);
+    btns[1].onclick=()=>wipeImages(i);
+    btns[2].onclick=()=>deleteClass(i);
+    btns.forEach(b=>addHoverGlow(b));
+
+    const sel=card.querySelector("select");
+    sel.value=c.preset;
+    sel.onchange=()=>setPreset(i,sel.value);
+    addHoverGlow(sel);
+  });
 }
 
 function addImages(e,i){
   for(const f of e.target.files){
-    const img=new Image()
-    img.onload=()=>{classes[i].images.push(img);render()}
-    img.src=URL.createObjectURL(f)
+    const img=new Image();
+    img.onload=()=>{classes[i].images.push(img);render();}
+    img.src=URL.createObjectURL(f);
   }
 }
 
+// TRAINING AND TEST FUNCTIONS
 async function train(){
-  if(classes.length<2) return alert("Need 2+ classes")
-  if(classes.some(c=>c.images.length<5)) return alert("Each class needs 5+ images")
-  document.getElementById("status").textContent="Loading model..."
-  if(!net) net=await mobilenet.load()
+  if(classes.length<2) return alert("Need 2+ classes");
+  if(classes.some(c=>c.images.length<5)) return alert("Each class needs 5+ images");
+  document.getElementById("status").textContent="Loading model...";
+  if(!net) net=await mobilenet.load();
 
-  const xs=[], ys=[]
+  const xs=[], ys=[];
   classes.forEach((c,i)=>{
     c.images.forEach(img=>{
-      const t=tf.browser.fromPixels(img).expandDims(0)
-      xs.push(net.infer(t,true))
-      ys.push(i)
-      t.dispose()
-    })
-  })
+      const t=tf.browser.fromPixels(img).expandDims(0);
+      xs.push(net.infer(t,true));
+      ys.push(i);
+      t.dispose();
+    });
+  });
 
-  const x=tf.concat(xs)
-  const y=tf.tensor1d(ys,"int32")
+  const x=tf.concat(xs);
+  const y=tf.tensor1d(ys,"int32");
 
-  classifier=tf.sequential()
-  classifier.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}))
-  classifier.compile({optimizer:tf.train.adam(0.0003),loss:"sparseCategoricalCrossentropy"})
+  classifier=tf.sequential();
+  classifier.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}));
+  classifier.compile({optimizer:tf.train.adam(0.0003),loss:"sparseCategoricalCrossentropy"});
 
   for(let i=0;i<20;i++){
-    await classifier.fit(x,y,{epochs:1})
-    document.getElementById("prog").style.width=((i+1)/20*100)+"%"
+    await classifier.fit(x,y,{epochs:1});
+    document.getElementById("prog").style.width=((i+1)/20*100)+"%";
   }
 
-  document.getElementById("status").textContent="✅ Training complete"
-  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose())
+  document.getElementById("status").textContent="✅ Training complete";
+  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose());
 }
 
 function testImage(e){
-  if(!classifier) return alert("Train first")
-  const img=new Image()
-  img.onload=()=>predict(img)
-  img.src=URL.createObjectURL(e.target.files[0])
+  if(!classifier) return alert("Train first");
+  const img=new Image();
+  img.onload=()=>predict(img);
+  img.src=URL.createObjectURL(e.target.files[0]);
 }
 
 function predict(img){
-  const t=tf.browser.fromPixels(img).expandDims(0)
-  const e=net.infer(t,true)
-  const p=classifier.predict(e).dataSync()
-  const results=document.getElementById("results")
-  results.innerHTML=""
+  const t=tf.browser.fromPixels(img).expandDims(0);
+  const e=net.infer(t,true);
+  const p=classifier.predict(e).dataSync();
+  const results=document.getElementById("results");
+  results.innerHTML="";
   p.forEach((v,i)=>{
-    const pct=(v*100).toFixed(1)
-    const color=PRESETS[classes[i].preset].shades[classes[i].shade]
+    const pct=(v*100).toFixed(1);
+    const color=PRESETS[classes[i].preset].shades[classes[i].shade];
     results.innerHTML+=`
       <div>${classes[i].name}</div>
       <div class="barbg">
         <div class="bar" style="width:${pct}%; background:${color};">
           ${pct}%
         </div>
-      </div>`
-  })
-  t.dispose(); e.dispose()
+      </div>`;
+  });
+  t.dispose(); e.dispose();
 }
 
-render()
+render();
 </script>
 
 </body>
