@@ -22,14 +22,15 @@ input,button,select{
   border:none;
   font-size:14px;
   box-sizing:border-box;
-  transition: 0.3s;
+  transition:0.3s;
 }
 input.classNameInput{
   background:white;
   color:black;
   width:100%;
+  text-align:left;
 }
-button{cursor:pointer; transition:0.3s;}
+button{cursor:pointer;}
 button:hover,input:hover,select:hover{
   box-shadow:0 0 10px currentColor;
 }
@@ -70,11 +71,9 @@ button:hover,input:hover,select:hover{
   border-radius:6px;
   margin-bottom:6px;
   font-weight:bold;
-  text-align:center;
+  text-align:left;
 }
-select option{
-  color:white;
-}
+select{color:white;}
 </style>
 </head>
 <body>
@@ -100,7 +99,7 @@ let classes=[]
 
 const PRESETS=[
   {name:"Green", shades:["#1f4d2b","#236635","#2b7a3b"]},
-  {name:"Blue", shades:["#1e40af","#1e3a8a","#1e3a9f"]},
+  {name:"Blue", shades:["#1e40af","#1e3a8a","#1e3fbb"]},
   {name:"Orange", shades:["#b45309","#c76a0d","#d97706"]},
   {name:"Red", shades:["#991b1b","#b91c1c","#dc2626"]},
   {name:"Purple", shades:["#6b21a8","#7e22ce","#9333ea"]}
@@ -140,8 +139,7 @@ function render(){
       <div class="row">
         <select style="background:${color}; color:white; box-shadow:0 0 5px ${color}" onchange="setPreset(${i},this.value,this.selectedIndex)">
           ${PRESETS.map((p,pi)=>{
-            const firstShade=p.shades[0]
-            return `<option value="${pi}" style="background:${firstShade}; color:white">${p.name}</option>`
+            return `<option value="${pi}" style="background:${p.shades[1]}; color:white">${p.shades[1]}</option>`
           }).join("")}
         </select>
       </div>
