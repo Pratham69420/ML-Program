@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Image Classifier</title>
+<title>Easy ML Image Classifier</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
@@ -14,266 +14,187 @@ body{
   font-family:system-ui;
   padding:20px;
 }
-h2{margin-bottom:10px}
-
-.container{
-  max-width:900px;
-  margin:auto;
-}
-
-.card{
-  background:#020617;
-  border-radius:16px;
-  padding:16px;
-  margin-bottom:16px;
-  border:1px solid #1e293b;
-}
-
-input[type=text]{
-  width:100%;
-  padding:12px;
-  border-radius:12px;
-  border:none;
-  margin-bottom:12px;
-  font-size:15px;
-}
-
+h2{margin-top:0}
 button{
-  padding:10px;
-  border-radius:12px;
+  padding:8px;
+  margin-top:6px;
+  width:100%;
   border:none;
+  border-radius:8px;
   background:#3b82f6;
   color:white;
   cursor:pointer;
 }
 button:hover{filter:brightness(1.15)}
-
-.upload{background:#1e293b;width:100%;margin-top:8px}
-
-.colors{
-  display:flex;
-  gap:10px;
-  margin-bottom:10px;
+input{
+  width:100%;
+  padding:8px;
+  border-radius:8px;
+  border:none;
+  margin-top:6px;
 }
-.color{
-  width:22px;
-  height:22px;
-  border-radius:50%;
-  cursor:pointer;
-  border:2px solid transparent;
+.card{
+  background:#020617;
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:12px;
 }
-.color.selected{border:2px solid white}
-
 .count{
   font-size:12px;
   opacity:.7;
-  margin-top:6px;
 }
-
-.controls{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  margin-top:20px;
-}
-
-video{
-  width:100%;
-  max-height:280px;
-  border-radius:14px;
-  margin-top:10px;
-}
-
-.barbg{
-  background:#1e293b;
-  border-radius:10px;
-  overflow:hidden;
-  margin-bottom:8px;
-}
-.bar{
-  height:18px;
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  font-size:12px;
-  padding-right:6px;
-  color:white;
-}
-
 .progressbg{
   background:#1e293b;
   height:14px;
   border-radius:10px;
   overflow:hidden;
-  margin-top:10px;
+  margin-top:6px;
 }
 .progress{
   height:14px;
-  width:0%;
+  width:0;
   background:#22c55e;
   transition:.3s;
+}
+.barbg{
+  background:#1e293b;
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:6px;
+}
+.bar{
+  height:18px;
+  background:#22c55e;
+  width:0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding-right:6px;
+  font-size:12px;
 }
 </style>
 </head>
 
 <body>
-<div class="container">
 
-<h2>🧠 Image Classifier</h2>
+<h2>🧠 Easy ML Image Classifier</h2>
 
+<input id="newClass" placeholder="New class name">
 <button onclick="addClass()">➕ Add Class</button>
 
-<div id="classes"></div>
+<div id="classList"></div>
 
-<div class="card">
-  <button onclick="train()">🚀 Train</button>
-  <div class="progressbg"><div id="prog" class="progress"></div></div>
-  <div id="status"></div>
+<button onclick="train()">🚀 Train Model</button>
 
-  <div class="controls">
-    <button onclick="startLive()">📹 Live Test</button>
-    <button onclick="pickTest()">🖼 Test Image</button>
-  </div>
+<div class="progressbg"><div id="prog" class="progress"></div></div>
+<div id="status"></div>
 
-  <video id="video" autoplay playsinline hidden></video>
-  <input id="testFile" type="file" accept="image/*" hidden onchange="testImage(event)">
-</div>
+<h3>Test an Image</h3>
+<input type="file" accept="image/*" onchange="testImage(event)">
 
 <div id="results"></div>
 
-</div>
-
 <script>
-let net, model, live=false
-let data=[]
-const palette=["#22c55e","#3b82f6","#f97316","#e11d48","#a855f7"]
+let net, classifier
+let classes=[]
 
 function addClass(){
-  data.push({name:"",imgs:[],color:palette[0]})
-  render()
+  const name=newClass.value.trim()
+  if(!name) return alert("Enter class name")
+  classes.push({name, images:[]})
+  newClass.value=""
+  renderClasses()
 }
 
-function render(){
-  classes.innerHTML=""
-  data.forEach((c,i)=>{
-    classes.innerHTML+=`
-    <div class="card">
-      <input placeholder="Class name"
-        value="${c.name}"
-        oninput="data[${i}].name=this.value">
-
-      <div class="colors">
-        ${palette.map(col=>`
-          <div class="color ${c.color===col?'selected':''}"
-            style="background:${col}"
-            onclick="setColor(${i},'${col}')"></div>
-        `).join("")}
-      </div>
-
-      <button class="upload" onclick="pick(${i})">📁 Upload Images</button>
-      <input id="up${i}" type="file" accept="image/*" multiple hidden
-        onchange="addImages(event,${i})">
-
-      <div class="count">${c.imgs.length} images</div>
-    </div>`
+function renderClasses(){
+  classList.innerHTML=""
+  classes.forEach((c,i)=>{
+    classList.innerHTML+=`
+      <div class="card">
+        <b>${c.name}</b>
+        <div class="count">${c.images.length} images</div>
+        <input type="file" accept="image/*" multiple
+          onchange="addImages(event,${i})">
+      </div>`
   })
 }
-
-function setColor(i,col){
-  data[i].color=col
-  render()
-}
-
-function pick(i){ document.getElementById("up"+i).click() }
 
 function addImages(e,i){
   for(const f of e.target.files){
     const img=new Image()
-    img.onload=()=>{data[i].imgs.push(img);render()}
+    img.onload=()=>{
+      classes[i].images.push(img)
+      renderClasses()
+    }
     img.src=URL.createObjectURL(f)
   }
 }
 
 async function train(){
-  if(data.length<2) return alert("Need 2+ classes")
-  if(data.some(c=>c.imgs.length<5)) return alert("5+ images per class")
+  if(classes.length<2)
+    return alert("Need at least 2 classes")
+  if(classes.some(c=>c.images.length<5))
+    return alert("Each class needs 5+ images")
 
   status.textContent="Loading model..."
   if(!net) net=await mobilenet.load()
 
-  const xs=[],ys=[]
-  data.forEach((c,i)=>{
-    c.imgs.forEach(img=>{
-      const t=tf.browser.fromPixels(img).toFloat().div(255).expandDims()
+  const xs=[], ys=[]
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0)
       xs.push(net.infer(t,true))
       ys.push(i)
       t.dispose()
     })
   })
 
-  model=tf.sequential()
-  model.add(tf.layers.dense({inputShape:[1024],units:data.length,activation:"softmax"}))
-  model.compile({
-    optimizer:tf.train.adam(0.0005),
-    loss:"sparseCategoricalCrossentropy"
-  })
-
   const x=tf.concat(xs)
   const y=tf.tensor1d(ys,"int32")
 
-  await model.fit(x,y,{
-    epochs:20,
-    callbacks:{
-      onEpochEnd:(e)=>{
-        prog.style.width=((e+1)/20*100)+"%"
-        status.textContent=`Epoch ${e+1}/20`
-      }
-    }
+  classifier=tf.sequential()
+  classifier.add(tf.layers.dense({
+    inputShape:[1024],
+    units:classes.length,
+    activation:"softmax"
+  }))
+  classifier.compile({
+    optimizer:tf.train.adam(0.0003),
+    loss:"sparseCategoricalCrossentropy"
   })
+
+  for(let i=0;i<20;i++){
+    await classifier.fit(x,y,{epochs:1})
+    prog.style.width=((i+1)/20*100)+"%"
+  }
 
   status.textContent="✅ Training complete"
   x.dispose();y.dispose();xs.forEach(t=>t.dispose())
 }
 
-function pickTest(){ testFile.click() }
-
 function testImage(e){
+  if(!classifier) return alert("Train first")
   const img=new Image()
   img.onload=()=>predict(img)
   img.src=URL.createObjectURL(e.target.files[0])
 }
 
-async function startLive(){
-  video.hidden=false
-  const stream=await navigator.mediaDevices.getUserMedia({video:true})
-  video.srcObject=stream
-  live=true
-  loop()
-}
-
-function loop(){
-  if(!live) return
-  predict(video)
-  requestAnimationFrame(loop)
-}
-
-function predict(src){
-  if(!model) return
-  const t=tf.browser.fromPixels(src).toFloat().div(255).expandDims()
+function predict(img){
+  const t=tf.browser.fromPixels(img).expandDims(0)
   const e=net.infer(t,true)
-  const p=model.predict(e).dataSync()
+  const p=classifier.predict(e).dataSync()
 
-  results.innerHTML=""
+  results.innerHTML="<h3>Prediction</h3>"
   p.forEach((v,i)=>{
-    const pct=(v*100).toFixed(1)
     results.innerHTML+=`
-      <div>${data[i].name||"Class "+(i+1)}</div>
+      <div>${classes[i].name}</div>
       <div class="barbg">
-        <div class="bar" style="width:${pct}%;background:${data[i].color}">
-          ${pct}%
+        <div class="bar" style="width:${(v*100).toFixed(1)}%">
+          ${(v*100).toFixed(1)}%
         </div>
       </div>`
   })
+
   t.dispose();e.dispose()
 }
 </script>
