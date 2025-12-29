@@ -17,7 +17,7 @@ body{
 h2{margin-top:0}
 button{
   padding:8px;
-  margin-top:8px;
+  margin-top:6px;
   width:100%;
   border:none;
   border-radius:8px;
@@ -26,32 +26,29 @@ button{
   cursor:pointer;
 }
 button:hover{filter:brightness(1.15)}
-.danger{background:#ef4444}
-.warn{background:#f59e0b}
 input{
   width:100%;
   padding:8px;
   border-radius:8px;
   border:none;
-  margin-top:8px;
+  margin-top:6px;
 }
 .card{
   background:#020617;
   padding:14px;
   border-radius:14px;
-  margin-bottom:14px;
+  margin-bottom:12px;
 }
 .count{
   font-size:12px;
   opacity:.7;
-  margin-top:4px;
 }
 .progressbg{
   background:#1e293b;
   height:14px;
   border-radius:10px;
   overflow:hidden;
-  margin-top:8px;
+  margin-top:6px;
 }
 .progress{
   height:14px;
@@ -67,23 +64,14 @@ input{
 }
 .bar{
   height:18px;
+  background:#22c55e;
   width:0;
   display:flex;
   align-items:center;
   justify-content:flex-end;
   padding-right:6px;
   font-size:12px;
-  color:white;
 }
-label{
-  font-size:12px;
-  opacity:.8;
-}
-.row{
-  display:flex;
-  gap:6px;
-}
-.row button{width:100%}
 </style>
 </head>
 
@@ -98,9 +86,7 @@ label{
 
 <button onclick="train()">🚀 Train Model</button>
 
-<div class="progressbg">
-  <div id="prog" class="progress"></div>
-</div>
+<div class="progressbg"><div id="prog" class="progress"></div></div>
 <div id="status"></div>
 
 <h3>Test an Image</h3>
@@ -115,13 +101,7 @@ let classes=[]
 function addClass(){
   const name=newClass.value.trim()
   if(!name) return alert("Enter class name")
-
-  classes.push({
-    name,
-    images:[],
-    color:"#22c55e"
-  })
-
+  classes.push({name, images:[]})
   newClass.value=""
   renderClasses()
 }
@@ -132,26 +112,92 @@ function renderClasses(){
     classList.innerHTML+=`
       <div class="card">
         <b>${c.name}</b>
-
-        <label>Class color</label>
-        <input type="color"
-          value="${c.color}"
-          onchange="setColor(${i},this.value)">
-
         <div class="count">${c.images.length} images</div>
-
         <input type="file" accept="image/*" multiple
           onchange="addImages(event,${i})">
-
-        <div class="row">
-          <button class="warn" onclick="deleteLast(${i})">↩ Delete Last</button>
-          <button class="danger" onclick="wipeAll(${i})">🧹 Wipe All</button>
-        </div>
-
-        <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
       </div>`
   })
 }
 
-function setColor(i,color){
-  clas
+function addImages(e,i){
+  for(const f of e.target.files){
+    const img=new Image()
+    img.onload=()=>{
+      classes[i].images.push(img)
+      renderClasses()
+    }
+    img.src=URL.createObjectURL(f)
+  }
+}
+
+async function train(){
+  if(classes.length<2)
+    return alert("Need at least 2 classes")
+  if(classes.some(c=>c.images.length<5))
+    return alert("Each class needs 5+ images")
+
+  status.textContent="Loading model..."
+  if(!net) net=await mobilenet.load()
+
+  const xs=[], ys=[]
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0)
+      xs.push(net.infer(t,true))
+      ys.push(i)
+      t.dispose()
+    })
+  })
+
+  const x=tf.concat(xs)
+  const y=tf.tensor1d(ys,"int32")
+
+  classifier=tf.sequential()
+  classifier.add(tf.layers.dense({
+    inputShape:[1024],
+    units:classes.length,
+    activation:"softmax"
+  }))
+  classifier.compile({
+    optimizer:tf.train.adam(0.0003),
+    loss:"sparseCategoricalCrossentropy"
+  })
+
+  for(let i=0;i<20;i++){
+    await classifier.fit(x,y,{epochs:1})
+    prog.style.width=((i+1)/20*100)+"%"
+  }
+
+  status.textContent="✅ Training complete"
+  x.dispose();y.dispose();xs.forEach(t=>t.dispose())
+}
+
+function testImage(e){
+  if(!classifier) return alert("Train first")
+  const img=new Image()
+  img.onload=()=>predict(img)
+  img.src=URL.createObjectURL(e.target.files[0])
+}
+
+function predict(img){
+  const t=tf.browser.fromPixels(img).expandDims(0)
+  const e=net.infer(t,true)
+  const p=classifier.predict(e).dataSync()
+
+  results.innerHTML="<h3>Prediction</h3>"
+  p.forEach((v,i)=>{
+    results.innerHTML+=`
+      <div>${classes[i].name}</div>
+      <div class="barbg">
+        <div class="bar" style="width:${(v*100).toFixed(1)}%">
+          ${(v*100).toFixed(1)}%
+        </div>
+      </div>`
+  })
+
+  t.dispose();e.dispose()
+}
+</script>
+
+</body>
+</html>
