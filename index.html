@@ -1,143 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<title>Grade 7 ML Image Classifier</title>
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0"></script>
+<title>Simple ML Classifier</title>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 
 <style>
-body{margin:0;font-family:system-ui;background:#0b1220;color:white}
-header{text-align:center;padding:14px;font-size:22px}
-.main{display:grid;grid-template-columns:360px 1fr;gap:14px;padding:14px}
-.panel{background:#020617;border-radius:14px;padding:14px}
-video{width:100%;border-radius:12px}
-button{width:100%;padding:8px;margin-top:6px;border:none;border-radius:10px;background:#2563eb;color:white;cursor:pointer}
-button:hover{background:#1e40af}
-.danger{background:#7f1d1d}
-.small{background:#334155}
-input{width:100%;padding:6px;border-radius:8px;border:none;margin-top:6px}
-.card{background:#020617;border:1px solid #1e293b;border-radius:12px;padding:10px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
-
-.barbg{background:#1e293b;border-radius:6px;overflow:hidden;margin-bottom:6px}
-.bar{height:14px;background:#22c55e;width:0%}
-
-.progressBg{background:#1e293b;border-radius:8px;overflow:hidden;margin-top:10px}
-.progress{height:18px;background:#38bdf8;width:0%}
-
-.time{margin-top:6px;font-size:14px;opacity:.85}
+body{font-family:sans-serif;background:#111;color:#fff}
+button{padding:8px;margin:4px;border:none;border-radius:6px;cursor:pointer}
+button:hover{filter:brightness(1.2)}
+.danger{background:#c33}
+.progressBg{width:300px;height:14px;background:#333;border-radius:10px}
+.progress{height:14px;width:0;background:#4caf50;border-radius:10px;transition:0.2s}
+.bar{height:12px;background:#0f0;margin:4px 0;width:0;transition:0.2s}
 </style>
 </head>
 
 <body>
-<header>🤖 Grade 7 Machine Learning Image Classifier</header>
 
-<div class="main">
-<div class="panel">
-  <video id="video" autoplay playsinline></video>
+<h2>ML Image Classifier</h2>
 
-  <button onclick="addClass()">➕ Add Class</button>
-  <button onclick="train()">🚀 Train Model</button>
-  <button class="danger" onclick="stopTraining()">🛑 Stop Training</button>
-  <button onclick="startLive()">📹 Live Test</button>
+<video id="video" width="224" height="224" autoplay playsinline></video><br>
 
-  <input type="file" accept="image/*" onchange="testImage(event)">
-</div>
+<input id="className" placeholder="class name">
+<button onclick="addClass()">➕ Add Class</button><br>
 
-<div class="panel">
-  <h3>Classes</h3>
-  <div id="classes" class="grid"></div>
+<input type="file" multiple accept="image/*" onchange="addImages(event)"><br>
 
-  <h3>Status</h3>
-  <div id="results"></div>
-</div>
-</div>
+<button onclick="train()">🚀 Train</button>
+<button class="danger" onclick="stopTraining()">🛑 Stop</button>
+<button onclick="startLive()">📹 Live</button><br>
+
+<input type="file" accept="image/*" onchange="testImage(event)">
+
+<div id="results"></div>
+<div id="bars"></div>
 
 <script>
-const MAX=50
-let classes=[]
-let net=null
-let classifier=null
-let live=false
-let stopFlag=false
-let lastPredict=0
+let net,classifier,classes=[],currentClass=0
+let live=false,lastPredict=0,stopFlag=false
 const FPS=200
 
-const video=document.getElementById("video")
-const classesDiv=document.getElementById("classes")
-const results=document.getElementById("results")
-
-// CAMERA
 navigator.mediaDevices.getUserMedia({video:true})
 .then(s=>video.srcObject=s)
 
-// CLASSES
 function addClass(){
-  classes.push({name:"",images:[]})
-  render()
+  const name=className.value.trim()
+  if(!name) return alert("name?")
+  classes.push({name,images:[]})
+  currentClass=classes.length-1
+  className.value=""
+  updateBars()
 }
 
-function render(){
-  classesDiv.innerHTML=""
-  classes.forEach((c,i)=>{
-    classesDiv.innerHTML+=`
-    <div class="card">
-      <input placeholder="Class name"
-        value="${c.name}"
-        oninput="classes[${i}].name=this.value">
-      <button onclick="capture(${i})">📸 Capture</button>
-      <button onclick="document.getElementById('up${i}').click()">📁 Upload</button>
-      <input id="up${i}" type="file" accept="image/*" multiple style="display:none"
-        onchange="upload(event,${i})">
-      <button class="small" onclick="removeLast(${i})">↩ Delete Last</button>
-      <button class="danger" onclick="wipe(${i})">🗑 Wipe All</button>
-      <button class="danger" onclick="deleteClass(${i})">❌ Delete Class</button>
-      <div>${c.images.length}/${MAX}</div>
-    </div>`
-  })
-}
-
-addClass()
-addClass()
-
-function deleteClass(i){classes.splice(i,1);render()}
-function wipe(i){classes[i].images=[];render()}
-function removeLast(i){classes[i].images.pop();render()}
-
-// CAPTURE / UPLOAD
-function capture(i){
-  if(classes[i].images.length>=MAX)return
-  const c=document.createElement("canvas")
-  c.width=224;c.height=224
-  c.getContext("2d").drawImage(video,0,0,224,224)
-  classes[i].images.push(c)
-  render()
-}
-
-function upload(e,i){
+function addImages(e){
+  if(classes.length===0) return alert("add class first")
   for(const f of e.target.files){
-    if(classes[i].images.length>=MAX)break
     const img=new Image()
-    img.onload=()=>{
-      const c=document.createElement("canvas")
-      c.width=224;c.height=224
-      c.getContext("2d").drawImage(img,0,0,224,224)
-      classes[i].images.push(c)
-      render()
-    }
+    img.onload=()=>classes[currentClass].images.push(img)
     img.src=URL.createObjectURL(f)
   }
 }
 
-// TRAINING (THIS WORKS)
+function updateBars(){
+  bars.innerHTML=""
+  classes.forEach(c=>{
+    const d=document.createElement("div")
+    d.textContent=c.name
+    const b=document.createElement("div")
+    b.className="bar"
+    d.appendChild(b)
+    bars.appendChild(d)
+  })
+}
+
 async function train(){
   stopFlag=false
-  results.innerHTML=`
-    <div class="progressBg"><div id="prog" class="progress"></div></div>
-    <div id="time" class="time">Starting…</div>
-  `
+  if(classes.some(c=>c.images.length<5))
+    return alert("❌ every class needs 5+ images")
+
+  results.innerHTML=`<div class="progressBg"><div id="prog" class="progress"></div></div><div id="time"></div>`
 
   if(!net) net=await mobilenet.load()
 
@@ -150,8 +93,6 @@ async function train(){
       t.dispose()
     })
   })
-
-  if(xs.length===0){results.innerHTML="❌ No images";return}
 
   const x=tf.concat(xs)
   const y=tf.tensor1d(ys,"int32")
@@ -167,52 +108,29 @@ async function train(){
     loss:"sparseCategoricalCrossentropy"
   })
 
-  const EPOCHS=20
-  const start=Date.now()
-
-  for(let e=0;e<EPOCHS;e++){
-    if(stopFlag){results.innerHTML="🛑 Training stopped";return}
+  const E=20,start=Date.now()
+  for(let i=0;i<E;i++){
+    if(stopFlag) return results.innerHTML="🛑 stopped"
     await classifier.fit(x,y,{epochs:1,shuffle:true})
-
-    const p=((e+1)/EPOCHS)*100
-    document.getElementById("prog").style.width=p+"%"
-
-    const elapsed=(Date.now()-start)/1000
-    const remain=(elapsed/(e+1))*(EPOCHS-(e+1))
-    document.getElementById("time").textContent=
-      `Epoch ${e+1}/${EPOCHS} • ~${remain.toFixed(1)}s left`
-
+    prog.style.width=((i+1)/E*100)+"%"
+    time.textContent=`epoch ${i+1}/${E}`
     await tf.nextFrame()
   }
 
   results.innerHTML="✅ Training complete"
-  setupBars()
-
   x.dispose();y.dispose();xs.forEach(t=>t.dispose())
 }
 
 function stopTraining(){stopFlag=true}
 
-// BARS
-function setupBars(){
-  results.innerHTML=""
-  classes.forEach((c,i)=>{
-    results.innerHTML+=`
-      <div>${c.name||"Class "+(i+1)}</div>
-      <div class="barbg"><div id="bar${i}" class="bar"></div></div>`
-  })
-}
-
-// LIVE
 function startLive(){
-  if(!classifier){alert("Train first");return}
+  if(!classifier) return alert("train first")
   live=true
-  lastPredict=0
   requestAnimationFrame(loop)
 }
 
 function loop(t){
-  if(!live)return
+  if(!live) return
   if(t-lastPredict>FPS){
     predict(video)
     lastPredict=t
@@ -220,26 +138,17 @@ function loop(t){
   requestAnimationFrame(loop)
 }
 
-// PREDICT
-function predict(src){
-  const c=document.createElement("canvas")
-  c.width=224;c.height=224
-  c.getContext("2d").drawImage(src,0,0,224,224)
-
-  const t=tf.browser.fromPixels(c).expandDims(0)
-  const e=net.infer(t,true)
-  const p=classifier.predict(e).dataSync()
-
-  p.forEach((v,i)=>{
-    const b=document.getElementById("bar"+i)
-    if(b)b.style.width=(v*100)+"%"
-  })
-
-  t.dispose();e.dispose()
+async function predict(src){
+  const img=tf.browser.fromPixels(src).expandDims(0)
+  const emb=net.infer(img,true)
+  const p=classifier.predict(emb).dataSync()
+  document.querySelectorAll(".bar")
+    .forEach((b,i)=>b.style.width=(p[i]*100)+"%")
+  img.dispose();emb.dispose()
 }
 
 function testImage(e){
-  if(!classifier)return
+  if(!classifier) return alert("train first")
   const img=new Image()
   img.onload=()=>predict(img)
   img.src=URL.createObjectURL(e.target.files[0])
