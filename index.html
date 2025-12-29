@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Simple ML Image Classifier</title>
+<title>Easy ML Image Classifier</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
@@ -15,23 +15,28 @@ body{
   padding:20px;
 }
 h2{margin-top:0}
-button,input,select{
-  width:100%;
+input,button,select{
   padding:8px;
   margin-top:6px;
   border-radius:8px;
   border:none;
-  color:white;
+  font-size:14px;
+  box-sizing:border-box;
 }
-button{background:#3b82f6;color:white;cursor:pointer}
-button:hover{filter:brightness(1.15)}
+input.classNameInput{
+  background:white;
+  color:black;
+  width:100%;
+}
+button{cursor:pointer}
 .card{
   padding:14px;
   border-radius:14px;
   margin-bottom:14px;
 }
 .small{font-size:12px;opacity:.7}
-.row{display:flex;gap:8px;margin-top:8px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+.row > *{flex:1;}
 .progressbg{
   background:#1e293b;
   height:14px;
@@ -61,18 +66,17 @@ button:hover{filter:brightness(1.15)}
   border-radius:6px;
   margin-bottom:6px;
   font-weight:bold;
+  text-align:center;
 }
-select option{
-  color:black;
-}
+select{color:white;}
+option{color:white;}
 </style>
 </head>
-
 <body>
 
 <h2>🧠 Easy Image Classifier</h2>
 
-<input id="classInput" placeholder="Class name">
+<input id="classInput" class="classNameInput" placeholder="Class name">
 <button onclick="addClass()">➕ Add Class</button>
 
 <div id="classList"></div>
@@ -90,63 +94,50 @@ let net, classifier
 let classes=[]
 
 const PRESETS=[
-  {name:"Green / Dark Green", bg:"#22c55e"},
-  {name:"Blue / Black", bg:"#3b82f6"},
-  {name:"Orange / Brown", bg:"#f59e0b"},
-  {name:"Red / Dark Red", bg:"#ef4444"},
-  {name:"Purple / Dark Purple", bg:"#a855f7"}
+  {name:"Green", shades:["#22c55e","#16a34a","#15803d"]},
+  {name:"Blue", shades:["#3b82f6","#2563eb","#1d4ed8"]},
+  {name:"Orange", shades:["#f59e0b","#d97706","#b45309"]},
+  {name:"Red", shades:["#ef4444","#dc2626","#b91c1c"]},
+  {name:"Purple", shades:["#a855f7","#9333ea","#7e22ce"]}
 ]
 
 function addClass(){
-  const name=classInput.value.trim()
+  const name=document.getElementById("classInput").value.trim()
   if(!name) return alert("Enter class name")
-  classes.push({name,images:[],preset:0})
-  classInput.value=""
+  classes.push({name,images:[],preset:0,shade:0})
+  document.getElementById("classInput").value=""
   render()
 }
 
-function deleteClass(i){
-  classes.splice(i,1)
-  render()
-}
-
-function wipeImages(i){
-  classes[i].images=[]
-  render()
-}
-
-function deleteLastImage(i){
-  classes[i].images.pop()
-  render()
-}
-
-function setPreset(ci,pi){
-  classes[ci].preset=pi
-  render()
-}
+function deleteClass(i){classes.splice(i,1);render()}
+function wipeImages(i){classes[i].images=[];render()}
+function deleteLastImage(i){classes[i].images.pop();render()}
+function setPreset(ci,pi,shade=0){classes[ci].preset=pi;classes[ci].shade=shade;render()}
 
 function render(){
+  const classList=document.getElementById("classList")
   classList.innerHTML=""
   classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].bg
+    const color=PRESETS[c.preset].shades[c.shade]
     classList.innerHTML+=`
     <div class="card" style="background:${color}33">
       <div class="classname" style="background:${color}; color:white">${c.name}</div>
       <div class="small">${c.images.length} images</div>
 
-      <input type="file" accept="image/*" multiple
-        style="background:${color}; color:white"
-        onchange="addImages(event,${i})">
+      <input type="file" accept="image/*" multiple style="background:${color}; color:white; width:100%" onchange="addImages(event,${i})">
 
       <div class="row">
-        <button onclick="deleteLastImage(${i})">Delete Last</button>
-        <button onclick="wipeImages(${i})">Wipe Images</button>
-        <button onclick="deleteClass(${i})">Delete Class</button>
+        <button style="background:${color}; color:white" onclick="deleteLastImage(${i})">Delete Last</button>
+        <button style="background:${color}; color:white" onclick="wipeImages(${i})">Wipe All</button>
+        <button style="background:${color}; color:white" onclick="deleteClass(${i})">Delete Class</button>
       </div>
 
       <div class="row">
-        <select style="background:${color}; color:white" onchange="setPreset(${i},this.selectedIndex)">
-          ${PRESETS.map((p,pi)=>`<option value="${pi}">${p.name}</option>`).join("")}
+        <select style="background:${color}; color:white" onchange="setPreset(${i},this.value,this.selectedIndex)">
+          ${PRESETS.map((p,pi)=>{
+            const firstShade=p.shades[0]
+            return `<option value="${pi}" style="background:${firstShade}; color:white">${p.name}</option>`
+          }).join("")}
         </select>
       </div>
     </div>`
@@ -163,10 +154,8 @@ function addImages(e,i){
 
 async function train(){
   if(classes.length<2) return alert("Need 2+ classes")
-  if(classes.some(c=>c.images.length<5))
-    return alert("Each class needs 5+ images")
-
-  status.textContent="Loading model..."
+  if(classes.some(c=>c.images.length<5)) return alert("Each class needs 5+ images")
+  document.getElementById("status").textContent="Loading model..."
   if(!net) net=await mobilenet.load()
 
   const xs=[], ys=[]
@@ -183,23 +172,16 @@ async function train(){
   const y=tf.tensor1d(ys,"int32")
 
   classifier=tf.sequential()
-  classifier.add(tf.layers.dense({
-    inputShape:[1024],
-    units:classes.length,
-    activation:"softmax"
-  }))
-  classifier.compile({
-    optimizer:tf.train.adam(0.0003),
-    loss:"sparseCategoricalCrossentropy"
-  })
+  classifier.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}))
+  classifier.compile({optimizer:tf.train.adam(0.0003),loss:"sparseCategoricalCrossentropy"})
 
   for(let i=0;i<20;i++){
     await classifier.fit(x,y,{epochs:1})
-    prog.style.width=((i+1)/20*100)+"%"
+    document.getElementById("prog").style.width=((i+1)/20*100)+"%"
   }
 
-  status.textContent="✅ Training complete"
-  x.dispose();y.dispose();xs.forEach(t=>t.dispose())
+  document.getElementById("status").textContent="✅ Training complete"
+  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose())
 }
 
 function testImage(e){
@@ -213,22 +195,23 @@ function predict(img){
   const t=tf.browser.fromPixels(img).expandDims(0)
   const e=net.infer(t,true)
   const p=classifier.predict(e).dataSync()
+  const results=document.getElementById("results")
   results.innerHTML=""
   p.forEach((v,i)=>{
     const pct=(v*100).toFixed(1)
-    const color=PRESETS[classes[i].preset].bg
+    const color=PRESETS[classes[i].preset].shades[classes[i].shade]
     results.innerHTML+=`
       <div>${classes[i].name}</div>
       <div class="barbg">
-        <div class="bar"
-          style="width:${pct}%;
-                 background:${color};">
+        <div class="bar" style="width:${pct}%; background:${color};">
           ${pct}%
         </div>
       </div>`
   })
-  t.dispose();e.dispose()
+  t.dispose(); e.dispose()
 }
+
+render()
 </script>
 
 </body>
