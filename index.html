@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Simple Image Classifier</title>
+<title>Easy ML Image Classifier</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
@@ -14,12 +14,13 @@ body{
   font-family:system-ui;
   padding:20px;
 }
+h2{margin-top:0}
 button{
-  padding:10px;
-  margin:6px 0;
+  padding:8px;
+  margin-top:6px;
   width:100%;
   border:none;
-  border-radius:10px;
+  border-radius:8px;
   background:#3b82f6;
   color:white;
   cursor:pointer;
@@ -28,9 +29,19 @@ button:hover{filter:brightness(1.15)}
 input{
   width:100%;
   padding:8px;
-  margin:6px 0;
   border-radius:8px;
   border:none;
+  margin-top:6px;
+}
+.card{
+  background:#020617;
+  padding:14px;
+  border-radius:14px;
+  margin-bottom:12px;
+}
+.count{
+  font-size:12px;
+  opacity:.7;
 }
 .progressbg{
   background:#1e293b;
@@ -44,12 +55,6 @@ input{
   width:0;
   background:#22c55e;
   transition:.3s;
-}
-.card{
-  background:#020617;
-  padding:14px;
-  border-radius:14px;
-  margin-top:14px;
 }
 .barbg{
   background:#1e293b;
@@ -66,23 +71,18 @@ input{
   justify-content:flex-end;
   padding-right:6px;
   font-size:12px;
-  transition:.3s;
-}
-.label{
-  font-size:14px;
-  margin-top:10px;
 }
 </style>
 </head>
 
 <body>
 
-<h2>🧠 Simple ML Image Classifier</h2>
+<h2>🧠 Easy ML Image Classifier</h2>
 
-<input id="className" placeholder="Class name">
+<input id="newClass" placeholder="New class name">
 <button onclick="addClass()">➕ Add Class</button>
 
-<input type="file" multiple accept="image/*" onchange="addImages(event)">
+<div id="classList"></div>
 
 <button onclick="train()">🚀 Train Model</button>
 
@@ -92,32 +92,47 @@ input{
 <h3>Test an Image</h3>
 <input type="file" accept="image/*" onchange="testImage(event)">
 
-<div id="results" class="card"></div>
+<div id="results"></div>
 
 <script>
 let net, classifier
 let classes=[]
-let currentClass=0
 
 function addClass(){
-  const name=className.value.trim()
+  const name=newClass.value.trim()
   if(!name) return alert("Enter class name")
   classes.push({name, images:[]})
-  currentClass=classes.length-1
-  className.value=""
+  newClass.value=""
+  renderClasses()
 }
 
-function addImages(e){
-  if(!classes.length) return alert("Add a class first")
+function renderClasses(){
+  classList.innerHTML=""
+  classes.forEach((c,i)=>{
+    classList.innerHTML+=`
+      <div class="card">
+        <b>${c.name}</b>
+        <div class="count">${c.images.length} images</div>
+        <input type="file" accept="image/*" multiple
+          onchange="addImages(event,${i})">
+      </div>`
+  })
+}
+
+function addImages(e,i){
   for(const f of e.target.files){
     const img=new Image()
-    img.onload=()=>classes[currentClass].images.push(img)
+    img.onload=()=>{
+      classes[i].images.push(img)
+      renderClasses()
+    }
     img.src=URL.createObjectURL(f)
   }
 }
 
 async function train(){
-  if(classes.length<2) return alert("Need at least 2 classes")
+  if(classes.length<2)
+    return alert("Need at least 2 classes")
   if(classes.some(c=>c.images.length<5))
     return alert("Each class needs 5+ images")
 
@@ -170,10 +185,9 @@ function predict(img){
   const p=classifier.predict(e).dataSync()
 
   results.innerHTML="<h3>Prediction</h3>"
-
   p.forEach((v,i)=>{
     results.innerHTML+=`
-      <div class="label">${classes[i].name}</div>
+      <div>${classes[i].name}</div>
       <div class="barbg">
         <div class="bar" style="width:${(v*100).toFixed(1)}%">
           ${(v*100).toFixed(1)}%
