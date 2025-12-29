@@ -21,6 +21,7 @@ button,input,select{
   margin-top:6px;
   border-radius:8px;
   border:none;
+  color:white;
 }
 button{background:#3b82f6;color:white;cursor:pointer}
 button:hover{filter:brightness(1.15)}
@@ -52,7 +53,7 @@ button:hover{filter:brightness(1.15)}
   justify-content:flex-end;
   padding-right:6px;
   font-size:12px;
-  color:white !important;
+  color:white;
   text-shadow:1px 1px 2px black;
 }
 .classname{
@@ -60,6 +61,9 @@ button:hover{filter:brightness(1.15)}
   border-radius:6px;
   margin-bottom:6px;
   font-weight:bold;
+}
+select option{
+  color:black;
 }
 </style>
 </head>
@@ -86,11 +90,11 @@ let net, classifier
 let classes=[]
 
 const PRESETS=[
-  {name:"Green / Dark Green", bg:"#22c55e", text:"#052e16"},
-  {name:"Blue / Black", bg:"#3b82f6", text:"#020617"},
-  {name:"Orange / Brown", bg:"#f59e0b", text:"#3f1d0b"},
-  {name:"Red / Dark Red", bg:"#ef4444", text:"#450a0a"},
-  {name:"Purple / Dark Purple", bg:"#a855f7", text:"#2e1065"}
+  {name:"Green / Dark Green", bg:"#22c55e"},
+  {name:"Blue / Black", bg:"#3b82f6"},
+  {name:"Orange / Brown", bg:"#f59e0b"},
+  {name:"Red / Dark Red", bg:"#ef4444"},
+  {name:"Purple / Dark Purple", bg:"#a855f7"}
 ]
 
 function addClass(){
@@ -124,13 +128,14 @@ function setPreset(ci,pi){
 function render(){
   classList.innerHTML=""
   classes.forEach((c,i)=>{
-    const colors=PRESETS[c.preset]
+    const color=PRESETS[c.preset].bg
     classList.innerHTML+=`
-    <div class="card" style="background:${colors.bg}33">
-      <div class="classname" style="color:${colors.text}; background:${colors.bg}22">${c.name}</div>
+    <div class="card" style="background:${color}33">
+      <div class="classname" style="background:${color}; color:white">${c.name}</div>
       <div class="small">${c.images.length} images</div>
 
       <input type="file" accept="image/*" multiple
+        style="background:${color}; color:white"
         onchange="addImages(event,${i})">
 
       <div class="row">
@@ -140,8 +145,8 @@ function render(){
       </div>
 
       <div class="row">
-        <select onchange="setPreset(${i},this.selectedIndex)">
-          ${PRESETS.map((p,pi)=>`<option ${c.preset===pi?'selected':''}>${p.name}</option>`).join("")}
+        <select style="background:${color}; color:white" onchange="setPreset(${i},this.selectedIndex)">
+          ${PRESETS.map((p,pi)=>`<option value="${pi}">${p.name}</option>`).join("")}
         </select>
       </div>
     </div>`
@@ -211,13 +216,13 @@ function predict(img){
   results.innerHTML=""
   p.forEach((v,i)=>{
     const pct=(v*100).toFixed(1)
-    const colors=PRESETS[classes[i].preset]
+    const color=PRESETS[classes[i].preset].bg
     results.innerHTML+=`
       <div>${classes[i].name}</div>
       <div class="barbg">
         <div class="bar"
           style="width:${pct}%;
-                 background:${colors.bg};">
+                 background:${color};">
           ${pct}%
         </div>
       </div>`
