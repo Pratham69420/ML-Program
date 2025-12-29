@@ -14,64 +14,31 @@ body{
   font-family:system-ui;
   padding:20px;
 }
-h2{margin-top:0}
-button{
-  padding:8px;
-  margin-top:6px;
-  width:100%;
-  border:none;
-  border-radius:8px;
-  background:#3b82f6;
-  color:white;
-  cursor:pointer;
-}
-button:hover{filter:brightness(1.15)}
-input{
+button,input{
   width:100%;
   padding:8px;
+  margin-top:6px;
   border-radius:8px;
   border:none;
-  margin-top:6px;
 }
+button{background:#3b82f6;color:white;cursor:pointer}
 .card{
   background:#020617;
   padding:14px;
   border-radius:14px;
   margin-bottom:12px;
 }
-.count{
-  font-size:12px;
-  opacity:.7;
+.row{display:flex;gap:8px;margin-top:8px}
+.colorCircle{
+  width:36px;height:36px;border-radius:50%;
+  background:linear-gradient(90deg,#22c55e 50%,#022c22 50%);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:11px;
 }
-.progressbg{
-  background:#1e293b;
-  height:14px;
-  border-radius:10px;
-  overflow:hidden;
-  margin-top:6px;
-}
-.progress{
-  height:14px;
-  width:0;
-  background:#22c55e;
-  transition:.3s;
-}
-.barbg{
-  background:#1e293b;
-  border-radius:8px;
-  overflow:hidden;
-  margin-top:6px;
-}
-.bar{
-  height:18px;
-  background:#22c55e;
-  width:0;
-  display:flex;
-  align-items:center;
-  justify-content:flex-end;
-  padding-right:6px;
-  font-size:12px;
-}
+.progressbg{background:#1e293b;height:14px;border-radius:10px;overflow:hidden}
+.progress{height:14px;width:0;background:#22c55e}
+.barbg{background:#1e293b;border-radius:8px;overflow:hidden;margin-top:6px}
+.bar{height:18px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:12px}
 </style>
 </head>
 
@@ -79,19 +46,19 @@ input{
 
 <h2>🧠 Easy ML Image Classifier</h2>
 
-<input id="newClass" placeholder="New class name">
+<input id="classInput" placeholder="New class name">
 <button onclick="addClass()">➕ Add Class</button>
+<button onclick="deleteLast()">🗑 Delete Last</button>
+<button onclick="wipeAll()">🔥 Wipe All</button>
 
 <div id="classList"></div>
 
-<button onclick="train()">🚀 Train Model</button>
-
+<button onclick="train()">🚀 Train</button>
 <div class="progressbg"><div id="prog" class="progress"></div></div>
 <div id="status"></div>
 
-<h3>Test an Image</h3>
+<h3>Test Image</h3>
 <input type="file" accept="image/*" onchange="testImage(event)">
-
 <div id="results"></div>
 
 <script>
@@ -99,53 +66,50 @@ let net, classifier
 let classes=[]
 
 function addClass(){
-  const name=newClass.value.trim()
-  if(!name) return alert("Enter class name")
-  classes.push({name, images:[]})
-  newClass.value=""
-  renderClasses()
+  const input=document.getElementById("classInput")
+  const name=input.value.trim()
+  if(name===""){alert("Type a class name");return}
+  classes.push({name,images:[],bg:"#22c55e",text:"#022c22"})
+  input.value=""
+  render()
 }
 
-function renderClasses(){
-  classList.innerHTML=""
+function deleteLast(){classes.pop();render()}
+function wipeAll(){classes=[];classifier=null;render();results.innerHTML=""}
+
+function render(){
+  const list=document.getElementById("classList")
+  list.innerHTML=""
   classes.forEach((c,i)=>{
-    classList.innerHTML+=`
-      <div class="card">
-        <b>${c.name}</b>
-        <div class="count">${c.images.length} images</div>
-        <input type="file" accept="image/*" multiple
-          onchange="addImages(event,${i})">
-      </div>`
+    list.innerHTML+=`
+    <div class="card">
+      <b style="color:${c.text}">${c.name}</b>
+      <div>${c.images.length} images</div>
+      <input type="file" multiple accept="image/*"
+        onchange="addImages(event,${i})">
+    </div>`
   })
 }
 
 function addImages(e,i){
   for(const f of e.target.files){
     const img=new Image()
-    img.onload=()=>{
-      classes[i].images.push(img)
-      renderClasses()
-    }
+    img.onload=()=>{classes[i].images.push(img);render()}
     img.src=URL.createObjectURL(f)
   }
 }
 
 async function train(){
-  if(classes.length<2)
-    return alert("Need at least 2 classes")
+  if(classes.length<2)return alert("Need 2 classes")
   if(classes.some(c=>c.images.length<5))
-    return alert("Each class needs 5+ images")
+    return alert("5+ images per class")
 
-  status.textContent="Loading model..."
-  if(!net) net=await mobilenet.load()
-
-  const xs=[], ys=[]
+  if(!net)net=await mobilenet.load()
+  const xs=[],ys=[]
   classes.forEach((c,i)=>{
     c.images.forEach(img=>{
       const t=tf.browser.fromPixels(img).expandDims(0)
-      xs.push(net.infer(t,true))
-      ys.push(i)
-      t.dispose()
+      xs.push(net.infer(t,true));ys.push(i);t.dispose()
     })
   })
 
@@ -165,15 +129,14 @@ async function train(){
 
   for(let i=0;i<20;i++){
     await classifier.fit(x,y,{epochs:1})
-    prog.style.width=((i+1)/20*100)+"%"
+    document.getElementById("prog").style.width=((i+1)/20*100)+"%"
   }
 
   status.textContent="✅ Training complete"
-  x.dispose();y.dispose();xs.forEach(t=>t.dispose())
 }
 
 function testImage(e){
-  if(!classifier) return alert("Train first")
+  if(!classifier)return alert("Train first")
   const img=new Image()
   img.onload=()=>predict(img)
   img.src=URL.createObjectURL(e.target.files[0])
@@ -183,21 +146,11 @@ function predict(img){
   const t=tf.browser.fromPixels(img).expandDims(0)
   const e=net.infer(t,true)
   const p=classifier.predict(e).dataSync()
-
-  results.innerHTML="<h3>Prediction</h3>"
+  results.innerHTML=""
   p.forEach((v,i)=>{
     results.innerHTML+=`
-      <div>${classes[i].name}</div>
-      <div class="barbg">
-        <div class="bar" style="width:${(v*100).toFixed(1)}%">
-          ${(v*100).toFixed(1)}%
-        </div>
-      </div>`
-  })
-
-  t.dispose();e.dispose()
-}
-</script>
-
-</body>
-</html>
+    <div>${classes[i].name}</div>
+    <div class="barbg">
+      <div class="bar" style="width:${(v*100).toFixed(1)}%;
+        background:${classes[i].bg};color:${classes[i].text}">
+        ${(v*100).toFixed(1)}%
