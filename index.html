@@ -122,30 +122,38 @@ function upload(e,i){
 
 async function train(){
   stopFlag=false
-  startTime=Date.now()
-  if(!net)net=await mobilenet.load()
+  if(!net) net = await mobilenet.load()
 
-  const xs=[],ys=[]
   results.innerHTML=`
     <div class="progressBarBg">
       <div id="prog" class="progressBar"></div>
     </div>
-    <div id="time" class="time">Starting…</div>
+    <div id="time" class="time">Preparing data…</div>
   `
 
-  classes.forEach((c,i)=>c.images.forEach(img=>{
-    const t=tf.browser.fromPixels(img).expandDims(0)
-    xs.push(net.infer(t,true));ys.push(i);t.dispose()
-  }))
+  const xs=[], ys=[]
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0)
+      xs.push(net.infer(t,true))
+      ys.push(i)
+      t.dispose()
+    })
+  })
 
-  if(xs.length===0){alert("Add images");return}
+  if(xs.length===0){
+    results.innerHTML="❌ No images"
+    return
+  }
 
   const x=tf.concat(xs)
   const y=tf.tensor1d(ys,"int32")
 
   classifier=tf.sequential()
   classifier.add(tf.layers.dense({
-    inputShape:[1024],units:classes.length,activation:"softmax"
+    inputShape:[1024],
+    units:classes.length,
+    activation:"softmax"
   }))
   classifier.compile({
     optimizer:tf.train.adam(0.0003),
@@ -154,26 +162,34 @@ async function train(){
   })
 
   const EPOCHS=20
+  const start=Date.now()
 
-  await classifier.fit(x,y,{
-    epochs:EPOCHS,
-    callbacks:{
-      onEpochEnd:async(e,l)=>{
-        if(stopFlag){classifier.stopTraining=true;results.innerHTML="🛑 Training stopped";return}
-        document.getElementById("prog").style.width=((e+1)/EPOCHS*100)+"%"
-        const elapsed=(Date.now()-startTime)/1000
-        const remain=(elapsed/(e+1))*(EPOCHS-(e+1))
-        document.getElementById("time").textContent=
-          `Epoch ${e+1}/${EPOCHS} • ${(l.accuracy*100).toFixed(1)}% • ~${remain.toFixed(1)}s left`
-        await tf.nextFrame()   // 🔥 THIS FIXES IT
-      },
-      onTrainEnd:()=>{
-        if(!stopFlag){results.innerHTML="✅ Training complete";setupBars()}
-      }
+  for(let e=0;e<EPOCHS;e++){
+    if(stopFlag){
+      results.innerHTML="🛑 Training stopped"
+      return
     }
-  })
 
-  x.dispose();y.dispose();xs.forEach(t=>t.dispose())
+    await classifier.fit(x,y,{epochs:1,shuffle:true})
+
+    const prog=((e+1)/EPOCHS)*100
+    document.getElementById("prog").style.width=prog+"%"
+
+    const elapsed=(Date.now()-start)/1000
+    const remain=(elapsed/(e+1))*(EPOCHS-(e+1))
+
+    document.getElementById("time").textContent=
+      `Epoch ${e+1}/${EPOCHS} • ~${remain.toFixed(1)}s left`
+
+    await tf.nextFrame()   // UI GUARANTEED
+  }
+
+  results.innerHTML="✅ Training complete"
+  setupBars()
+
+  x.dispose()
+  y.dispose()
+  xs.forEach(t=>t.dispose())
 }
 
 function stopTraining(){stopFlag=true}
