@@ -170,33 +170,36 @@ async function train(){
   if(classes.length<2) return alert("Need 2+ classes");
   if(classes.some(c=>c.images.length<5)) return alert("Each class needs 5+ images");
   document.getElementById("status").textContent="Loading model...";
-  if(!net) net=await mobilenet.load();
+  if(!net) net = await mobilenet.load();
 
   const xs=[], ys=[];
   classes.forEach((c,i)=>{
     c.images.forEach(img=>{
       tf.tidy(()=>{
-        const t=tf.browser.fromPixels(img).expandDims(0);
+        const t = tf.browser.fromPixels(img).resizeBilinear([224,224]).expandDims(0);
         xs.push(net.infer(t,true));
         ys.push(i);
       });
     });
   });
 
-  const x=tf.concat(xs);
-  const y=tf.tensor1d(ys,"int32");
+  const x = tf.concat(xs);
+  const y = tf.tensor1d(ys, "int32");
 
-  classifier=tf.sequential();
-  classifier.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}));
-  classifier.compile({optimizer:tf.train.adam(0.0003),loss:"sparseCategoricalCrossentropy"});
+  classifier = tf.sequential();
+  classifier.add(tf.layers.dense({inputShape:[1024], units: classes.length, activation:"softmax"}));
+  classifier.compile({optimizer: tf.train.adam(0.0003), loss: "sparseCategoricalCrossentropy"});
 
-  for(let i=0;i<20;i++){
-    await classifier.fit(x,y,{epochs:1});
-    document.getElementById("prog").style.width=((i+1)/20*100)+"%";
+  const progBar = document.getElementById("prog");
+
+  for(let i=0; i<20; i++){
+    await classifier.fit(x, y, {epochs:1});
+    progBar.style.width = ((i+1)/20*100) + "%";
+    await new Promise(r => setTimeout(r, 10)); // allow browser to repaint
   }
 
-  document.getElementById("status").textContent="✅ Training complete";
-  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose());
+  document.getElementById("status").textContent = "✅ Training complete";
+  x.dispose(); y.dispose(); xs.forEach(t => t.dispose());
 }
 
 function testImage(e){
