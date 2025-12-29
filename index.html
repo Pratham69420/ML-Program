@@ -191,13 +191,22 @@ function setupBars(){
 }
 
 function startLive(){
-  if(!classifier){alert("Train first");return}
-  live=true;requestAnimationFrame(loop)
+  if(!classifier){
+    alert("Train first")
+    return
+  }
+  live = true
+  lastPredict = 0
+  requestAnimationFrame(loop)
 }
 
-function loop(t){
-  if(!live)return
-  if(t-lastPredict>FPS){predict(video);lastPredict=t}
+function loop(time){
+  if(!live) return
+
+  if(time - lastPredict > FPS){
+    predict(video)
+    lastPredict = time
+  }
   requestAnimationFrame(loop)
 }
 
