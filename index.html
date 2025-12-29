@@ -52,6 +52,8 @@ button:hover{filter:brightness(1.15)}
   justify-content:flex-end;
   padding-right:6px;
   font-size:12px;
+  color:white !important;
+  text-shadow:1px 1px 2px black;
 }
 .classname{
   padding:6px;
@@ -215,8 +217,7 @@ function predict(img){
       <div class="barbg">
         <div class="bar"
           style="width:${pct}%;
-                 background:${colors.bg};
-                 color:${colors.text}">
+                 background:${colors.bg};">
           ${pct}%
         </div>
       </div>`
