@@ -15,7 +15,7 @@ body{
   padding:20px;
 }
 h2{margin-top:0}
-button,input{
+button,input,select{
   width:100%;
   padding:8px;
   margin-top:6px;
@@ -32,15 +32,6 @@ button:hover{filter:brightness(1.15)}
 }
 .small{font-size:12px;opacity:.7}
 .row{display:flex;gap:8px;margin-top:8px}
-.palette{display:flex;gap:8px;margin-top:6px}
-.swatch{
-  width:28px;height:28px;border-radius:50%;
-  cursor:pointer;border:2px solid transparent;
-}
-.swatch.active{
-  border-color:white;
-  box-shadow:0 0 8px #60a5fa;
-}
 .progressbg{
   background:#1e293b;
   height:14px;
@@ -98,7 +89,7 @@ const PRESETS=[
 function addClass(){
   const name=classInput.value.trim()
   if(!name) return alert("Enter class name")
-  classes.push({name,images:[],bg:PRESETS[0].bg,text:PRESETS[0].text})
+  classes.push({name,images:[],preset:0})
   classInput.value=""
   render()
 }
@@ -119,20 +110,16 @@ function deleteLastImage(i){
 }
 
 function setPreset(ci,pi){
-  classes[ci].bg=PRESETS[pi].bg
-  classes[ci].text=PRESETS[pi].text
+  classes[ci].preset=pi
   render()
 }
-
-function setCustomBG(i,v){classes[i].bg=v;render()}
-function setCustomText(i,v){classes[i].text=v;render()}
 
 function render(){
   classList.innerHTML=""
   classes.forEach((c,i)=>{
     classList.innerHTML+=`
     <div class="card">
-      <b style="color:${c.text}">${c.name}</b>
+      <b style="color:${PRESETS[c.preset].text}">${c.name}</b>
       <div class="small">${c.images.length} images</div>
 
       <input type="file" accept="image/*" multiple
@@ -144,17 +131,10 @@ function render(){
         <button onclick="deleteClass(${i})">Delete Class</button>
       </div>
 
-      <div class="palette">
-        ${PRESETS.map((p,pi)=>`
-          <div class="swatch ${c.bg===p.bg?'active':''}"
-            style="background:linear-gradient(135deg,${p.bg} 50%,${p.text} 50%)"
-            onclick="setPreset(${i},${pi})"></div>
-        `).join("")}
-      </div>
-
       <div class="row">
-        <input type="color" value="${c.bg}" onchange="setCustomBG(${i},this.value)">
-        <input type="color" value="${c.text}" onchange="setCustomText(${i},this.value)">
+        <select onchange="setPreset(${i},this.selectedIndex)">
+          ${PRESETS.map((p,pi)=>`<option ${c.preset===pi?'selected':''}>${p.bg} / ${p.text}</option>`).join("")}
+        </select>
       </div>
     </div>`
   })
@@ -223,13 +203,14 @@ function predict(img){
   results.innerHTML=""
   p.forEach((v,i)=>{
     const pct=(v*100).toFixed(1)
+    const colors=PRESETS[classes[i].preset]
     results.innerHTML+=`
       <div>${classes[i].name}</div>
       <div class="barbg">
         <div class="bar"
           style="width:${pct}%;
-                 background:${classes[i].bg};
-                 color:${classes[i].text}">
+                 background:${colors.bg};
+                 color:${colors.text}">
           ${pct}%
         </div>
       </div>`
