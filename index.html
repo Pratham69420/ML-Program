@@ -30,9 +30,12 @@ input.classNameInput{
   width:100%;
   text-align:left;
 }
-button{cursor:pointer;}
-button:hover,input:hover,select:hover{
-  box-shadow:0 0 10px currentColor;
+button, input[type=file], select{
+  outline:none;
+}
+button:hover, input[type=file]:hover, select:hover{
+  filter:brightness(1.1);
+  box-shadow:0 0 12px currentColor;
 }
 .card{
   padding:14px;
@@ -74,6 +77,7 @@ button:hover,input:hover,select:hover{
   text-align:left;
 }
 select{color:white;}
+option{color:white;}
 </style>
 </head>
 <body>
@@ -108,7 +112,7 @@ const PRESETS=[
 function addClass(){
   const name=document.getElementById("classInput").value.trim()
   if(!name) return alert("Enter class name")
-  classes.push({name,images:[],preset:0,shade:0})
+  classes.push({name,images:[],preset:0,shade:1})
   document.getElementById("classInput").value=""
   render()
 }
@@ -116,7 +120,11 @@ function addClass(){
 function deleteClass(i){classes.splice(i,1);render()}
 function wipeImages(i){classes[i].images=[];render()}
 function deleteLastImage(i){classes[i].images.pop();render()}
-function setPreset(ci,pi,shade=0){classes[ci].preset=pi;classes[ci].shade=shade;render()}
+function setPreset(ci,pi){
+  classes[ci].preset=pi
+  classes[ci].shade=1
+  render()
+}
 
 function render(){
   const classList=document.getElementById("classList")
@@ -128,18 +136,18 @@ function render(){
       <div class="classname" style="background:${color}; color:white">${c.name}</div>
       <div class="small">${c.images.length} images</div>
 
-      <input type="file" accept="image/*" multiple style="background:${color}; color:white; width:100%; box-shadow:0 0 5px ${color}" onchange="addImages(event,${i})">
+      <input type="file" accept="image/*" multiple style="background:${color}; color:white; width:100%" onchange="addImages(event,${i})">
 
       <div class="row">
-        <button style="background:${color}; color:white; box-shadow:0 0 5px ${color}" onclick="deleteLastImage(${i})">Delete Last</button>
-        <button style="background:${color}; color:white; box-shadow:0 0 5px ${color}" onclick="wipeImages(${i})">Wipe All</button>
-        <button style="background:${color}; color:white; box-shadow:0 0 5px ${color}" onclick="deleteClass(${i})">Delete Class</button>
+        <button style="background:${color}; color:white" onclick="deleteLastImage(${i})">Delete Last</button>
+        <button style="background:${color}; color:white" onclick="wipeImages(${i})">Wipe All</button>
+        <button style="background:${color}; color:white" onclick="deleteClass(${i})">Delete Class</button>
       </div>
 
       <div class="row">
-        <select style="background:${color}; color:white; box-shadow:0 0 5px ${color}" onchange="setPreset(${i},this.value,this.selectedIndex)">
+        <select style="background:${color}; color:white" onchange="setPreset(${i},this.value)">
           ${PRESETS.map((p,pi)=>{
-            return `<option value="${pi}" style="background:${p.shades[1]}; color:white">${p.shades[1]}</option>`
+            return `<option value="${pi}" style="background:${p.shades[1]}; color:white">${p.name}</option>`
           }).join("")}
         </select>
       </div>
