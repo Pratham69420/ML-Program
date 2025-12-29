@@ -161,4 +161,63 @@ async function train(){
   if(classes.length<2) return alert("Need 2+ classes")
   if(classes.some(c=>c.images.length<5)) return alert("Each class needs 5+ images")
   document.getElementById("status").textContent="Loading model..."
-  if(!net) net=aw
+  if(!net) net=await mobilenet.load()
+
+  const xs=[], ys=[]
+  classes.forEach((c,i)=>{
+    c.images.forEach(img=>{
+      const t=tf.browser.fromPixels(img).expandDims(0)
+      xs.push(net.infer(t,true))
+      ys.push(i)
+      t.dispose()
+    })
+  })
+
+  const x=tf.concat(xs)
+  const y=tf.tensor1d(ys,"int32")
+
+  classifier=tf.sequential()
+  classifier.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}))
+  classifier.compile({optimizer:tf.train.adam(0.0003),loss:"sparseCategoricalCrossentropy"})
+
+  for(let i=0;i<20;i++){
+    await classifier.fit(x,y,{epochs:1})
+    document.getElementById("prog").style.width=((i+1)/20*100)+"%"
+  }
+
+  document.getElementById("status").textContent="✅ Training complete"
+  x.dispose(); y.dispose(); xs.forEach(t=>t.dispose())
+}
+
+function testImage(e){
+  if(!classifier) return alert("Train first")
+  const img=new Image()
+  img.onload=()=>predict(img)
+  img.src=URL.createObjectURL(e.target.files[0])
+}
+
+function predict(img){
+  const t=tf.browser.fromPixels(img).expandDims(0)
+  const e=net.infer(t,true)
+  const p=classifier.predict(e).dataSync()
+  const results=document.getElementById("results")
+  results.innerHTML=""
+  p.forEach((v,i)=>{
+    const pct=(v*100).toFixed(1)
+    const color=PRESETS[classes[i].preset].shades[classes[i].shade]
+    results.innerHTML+=`
+      <div>${classes[i].name}</div>
+      <div class="barbg">
+        <div class="bar" style="width:${pct}%; background:${color};">
+          ${pct}%
+        </div>
+      </div>`
+  })
+  t.dispose(); e.dispose()
+}
+
+render()
+</script>
+
+</body>
+</html>
