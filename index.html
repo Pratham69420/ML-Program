@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Easy ML Image Classifier</title>
+<title>Simple ML Image Classifier</title>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
@@ -14,6 +14,7 @@ body{
   font-family:system-ui;
   padding:20px;
 }
+h2{margin-top:0}
 button,input{
   width:100%;
   padding:8px;
@@ -22,38 +23,59 @@ button,input{
   border:none;
 }
 button{background:#3b82f6;color:white;cursor:pointer}
+button:hover{filter:brightness(1.15)}
 .card{
   background:#020617;
   padding:14px;
   border-radius:14px;
-  margin-bottom:12px;
+  margin-bottom:14px;
 }
+.small{font-size:12px;opacity:.7}
 .row{display:flex;gap:8px;margin-top:8px}
-.colorCircle{
-  width:36px;height:36px;border-radius:50%;
-  background:linear-gradient(90deg,#22c55e 50%,#022c22 50%);
-  display:flex;align-items:center;justify-content:center;
-  cursor:pointer;font-size:11px;
+.palette{display:flex;gap:8px;margin-top:6px}
+.swatch{
+  width:28px;height:28px;border-radius:50%;
+  cursor:pointer;border:2px solid transparent;
 }
-.progressbg{background:#1e293b;height:14px;border-radius:10px;overflow:hidden}
-.progress{height:14px;width:0;background:#22c55e}
-.barbg{background:#1e293b;border-radius:8px;overflow:hidden;margin-top:6px}
-.bar{height:18px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:12px}
+.swatch.active{
+  border-color:white;
+  box-shadow:0 0 8px #60a5fa;
+}
+.progressbg{
+  background:#1e293b;
+  height:14px;
+  border-radius:10px;
+  overflow:hidden;
+  margin-top:8px;
+}
+.progress{height:14px;width:0;background:#22c55e;transition:.2s}
+.barbg{
+  background:#1e293b;
+  border-radius:8px;
+  overflow:hidden;
+  margin-top:6px;
+}
+.bar{
+  height:18px;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  padding-right:6px;
+  font-size:12px;
+}
 </style>
 </head>
 
 <body>
 
-<h2>🧠 Easy ML Image Classifier</h2>
+<h2>🧠 Easy Image Classifier</h2>
 
-<input id="classInput" placeholder="New class name">
+<input id="classInput" placeholder="Class name">
 <button onclick="addClass()">➕ Add Class</button>
-<button onclick="deleteLast()">🗑 Delete Last</button>
-<button onclick="wipeAll()">🔥 Wipe All</button>
 
 <div id="classList"></div>
 
-<button onclick="train()">🚀 Train</button>
+<button onclick="train()">🚀 Train Model</button>
 <div class="progressbg"><div id="prog" class="progress"></div></div>
 <div id="status"></div>
 
@@ -65,92 +87,13 @@ button{background:#3b82f6;color:white;cursor:pointer}
 let net, classifier
 let classes=[]
 
+const PRESETS=[
+  {bg:"#22c55e", text:"#052e16"},
+  {bg:"#3b82f6", text:"#020617"},
+  {bg:"#f59e0b", text:"#3f1d0b"},
+  {bg:"#ef4444", text:"#450a0a"},
+  {bg:"#a855f7", text:"#2e1065"}
+]
+
 function addClass(){
-  const input=document.getElementById("classInput")
-  const name=input.value.trim()
-  if(name===""){alert("Type a class name");return}
-  classes.push({name,images:[],bg:"#22c55e",text:"#022c22"})
-  input.value=""
-  render()
-}
-
-function deleteLast(){classes.pop();render()}
-function wipeAll(){classes=[];classifier=null;render();results.innerHTML=""}
-
-function render(){
-  const list=document.getElementById("classList")
-  list.innerHTML=""
-  classes.forEach((c,i)=>{
-    list.innerHTML+=`
-    <div class="card">
-      <b style="color:${c.text}">${c.name}</b>
-      <div>${c.images.length} images</div>
-      <input type="file" multiple accept="image/*"
-        onchange="addImages(event,${i})">
-    </div>`
-  })
-}
-
-function addImages(e,i){
-  for(const f of e.target.files){
-    const img=new Image()
-    img.onload=()=>{classes[i].images.push(img);render()}
-    img.src=URL.createObjectURL(f)
-  }
-}
-
-async function train(){
-  if(classes.length<2)return alert("Need 2 classes")
-  if(classes.some(c=>c.images.length<5))
-    return alert("5+ images per class")
-
-  if(!net)net=await mobilenet.load()
-  const xs=[],ys=[]
-  classes.forEach((c,i)=>{
-    c.images.forEach(img=>{
-      const t=tf.browser.fromPixels(img).expandDims(0)
-      xs.push(net.infer(t,true));ys.push(i);t.dispose()
-    })
-  })
-
-  const x=tf.concat(xs)
-  const y=tf.tensor1d(ys,"int32")
-
-  classifier=tf.sequential()
-  classifier.add(tf.layers.dense({
-    inputShape:[1024],
-    units:classes.length,
-    activation:"softmax"
-  }))
-  classifier.compile({
-    optimizer:tf.train.adam(0.0003),
-    loss:"sparseCategoricalCrossentropy"
-  })
-
-  for(let i=0;i<20;i++){
-    await classifier.fit(x,y,{epochs:1})
-    document.getElementById("prog").style.width=((i+1)/20*100)+"%"
-  }
-
-  status.textContent="✅ Training complete"
-}
-
-function testImage(e){
-  if(!classifier)return alert("Train first")
-  const img=new Image()
-  img.onload=()=>predict(img)
-  img.src=URL.createObjectURL(e.target.files[0])
-}
-
-function predict(img){
-  const t=tf.browser.fromPixels(img).expandDims(0)
-  const e=net.infer(t,true)
-  const p=classifier.predict(e).dataSync()
-  results.innerHTML=""
-  p.forEach((v,i)=>{
-    results.innerHTML+=`
-    <div>${classes[i].name}</div>
-    <div class="barbg">
-      <div class="bar" style="width:${(v*100).toFixed(1)}%;
-        background:${classes[i].bg};color:${classes[i].text}">
-        ${(v*100).toFixed(1)}%
+  const name=classInput.valu
