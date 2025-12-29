@@ -6,55 +6,66 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 <style>
-body{background:#0b1220;color:white;font-family:system-ui;padding:20px;}
-h2{margin-top:0}
-input,button{padding:8px;margin-top:6px;border-radius:8px;border:none;font-size:14px;box-sizing:border-box;transition:0.3s;}
-input.classNameInput{background:white;color:black;width:100%;text-align:left;}
+body{
+  background:#0b1220;
+  color:white;
+  font-family:'Poppins', sans-serif;
+  padding:20px;
+}
+h2{margin-top:0; font-weight:600;}
+input,button{padding:10px;margin-top:6px;border-radius:8px;border:none;font-size:15px;box-sizing:border-box;font-family:'Poppins', sans-serif;transition:0.3s;}
+input.classNameInput{background:white;color:black;width:100%;text-align:left;font-weight:500;}
 button,input[type=file]{outline:none;width:100%;}
 button:hover,input[type=file]:hover{filter:brightness(1.1);box-shadow:0 0 12px currentColor;}
 .card{padding:14px;border-radius:14px;margin-bottom:14px;}
-.small{font-size:12px;opacity:.7}
+.small{font-size:12px;opacity:.7;}
 .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
 .row > *{flex:1;}
 .progressbg{background:#1e293b;height:14px;border-radius:10px;overflow:hidden;margin-top:8px;}
-.progress{height:14px;width:0;background:#22c55e;transition:.2s}
+.progress{height:14px;width:0;background:#22c55e;transition:.2s;}
 .barbg{background:#1e293b;border-radius:8px;overflow:hidden;margin-top:6px;}
 .bar{height:18px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:12px;color:white;text-shadow:1px 1px 2px black;}
-.classname{padding:6px;border-radius:6px;margin-bottom:6px;font-weight:bold;text-align:left;}
+.classname{padding:6px;border-radius:6px;margin-bottom:6px;font-weight:600;text-align:left;}
 
-/* Custom Dropdown */
+/* Dropdown */
+.dropdown { position: relative; display: inline-block; width:100%; }
 .dropbtn {
-  background-color: #04AA6D;
-  color: white;
-  padding: 8px;
-  font-size: 14px;
-  border: none;
-  border-radius: 6px;
-  width: 100%;
-  cursor: pointer;
+  background-color:#3b82f6;
+  color:white;
+  padding:10px;
+  font-size:15px;
+  border-radius:8px;
+  border:none;
+  width:100%;
+  cursor:pointer;
+  text-align:left;
+  font-family:'Poppins', sans-serif;
+  transition:0.3s;
 }
-
-.dropdown {position: relative; display: inline-block; width: 100%;}
+.dropbtn:hover{filter:brightness(1.1); box-shadow:0 0 12px currentColor;}
 .dropdown-content {
   display: none;
   position: absolute;
-  background-color: #222;
-  min-width: 100%;
-  box-shadow: 0px 4px 12px 0px rgba(0,0,0,0.5);
+  background-color: #020617;
+  width: 100%;
   z-index: 1;
-  border-radius: 6px;
-  overflow: hidden;
+  border-radius:8px;
+  overflow:hidden;
+  font-family:'Poppins', sans-serif;
 }
 .dropdown-content a {
-  color: white;
-  padding: 10px;
-  text-decoration: none;
-  display: block;
-  cursor: pointer;
+  color:white;
+  padding:10px;
+  text-decoration:none;
+  display:block;
+  cursor:pointer;
+  transition:0.3s;
+  font-weight:500;
 }
 .dropdown-content a:hover {filter:brightness(1.2);}
-.dropdown:hover .dropdown-content {display: block;}
+.dropdown.show .dropdown-content {display:block;}
 </style>
 </head>
 <body>
@@ -74,7 +85,7 @@ button:hover,input[type=file]:hover{filter:brightness(1.1);box-shadow:0 0 12px c
 let net, classifier;
 let classes=[];
 
-// Adjusted shades for visibility
+// Presets
 const PRESETS=[
   {name:"Green", shades:["#1f4d2b","#236635","#2b7a3b"]},
   {name:"Blue", shades:["#1e40af","#1e3a8a","#1e3fbb"]},
@@ -83,19 +94,21 @@ const PRESETS=[
   {name:"Purple", shades:["#3e0f5c","#6b21a8","#7e22ce"]}
 ];
 
-function addHoverGlow(el){
-  el.onmouseover=()=>el.style.boxShadow=`0 0 12px ${el.style.backgroundColor}`;
-  el.onmouseout=()=>el.style.boxShadow=`none`;
-}
-
 document.getElementById("addBtn").onclick=()=>{addClass();};
 document.getElementById("trainBtn").onclick=()=>{train();};
 document.getElementById("testInput").onchange=(e)=>{testImage(e);};
 
-function addClass(){
+// Close all dropdowns when clicking outside
+window.onclick=(e)=>{
+  if(!e.target.matches('.dropbtn')){
+    document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
+  }
+};
+
+function addClass(){ 
   const name=document.getElementById("classInput").value.trim();
   if(!name) return alert("Enter class name");
-  classes.push({name,images:[],preset:0,shade:1});
+  classes.push({name,images:[],preset:0});
   document.getElementById("classInput").value="";
   render();
 }
@@ -103,19 +116,20 @@ function addClass(){
 function deleteClass(i){classes.splice(i,1);render();}
 function wipeImages(i){classes[i].images=[];render();}
 function deleteLastImage(i){classes[i].images.pop();render();}
-function setPreset(ci,pi){classes[ci].preset=parseInt(pi); classes[ci].shade=1; render();}
+function setPreset(ci,pi){classes[ci].preset=parseInt(pi); render();}
 
 function render(){
   const classList=document.getElementById("classList");
   classList.innerHTML="";
   classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].shades[c.shade];
+    const color=PRESETS[c.preset].shades[1];
     const card=document.createElement("div");
     card.className="card";
     card.style.background=color+"33";
 
+    // Dropdown HTML
     let dropdownOptions = PRESETS.map((p,pi)=>
-      `<a style="background:${p.shades[1]}" onclick="setPreset(${i},${pi})">${p.name}</a>`
+      `<a style="background:${p.shades[1]}; color:white" onclick="setPreset(${i},${pi})">${p.name}</a>`
     ).join("");
 
     card.innerHTML=`
@@ -136,15 +150,34 @@ function render(){
     `;
     classList.appendChild(card);
 
+    // File input
     const fileInput=card.querySelector("input[type=file]");
     fileInput.onchange=(e)=>addImages(e,i);
-    addHoverGlow(fileInput);
 
+    // Buttons
     const btns=card.querySelectorAll("button");
     btns[0].onclick=()=>deleteLastImage(i);
     btns[1].onclick=()=>wipeImages(i);
     btns[2].onclick=()=>deleteClass(i);
-    btns.forEach(b=>addHoverGlow(b));
+
+    // Dropdown toggle & automatic update
+    const dropbtn=card.querySelector(".dropbtn");
+    const dropdown=card.querySelector(".dropdown");
+    dropbtn.onclick=(e)=>{
+      e.stopPropagation();
+      dropdown.classList.toggle("show");
+    };
+
+    const options=card.querySelectorAll(".dropdown-content a");
+    options.forEach((opt,pi)=>{
+      opt.onclick=(e)=>{
+        e.stopPropagation();
+        setPreset(i,pi);
+        dropbtn.textContent=PRESETS[pi].name;
+        dropbtn.style.background=PRESETS[pi].shades[1];
+        dropdown.classList.remove("show");
+      };
+    });
   });
 }
 
@@ -203,7 +236,7 @@ function predict(img){
   results.innerHTML="";
   p.forEach((v,i)=>{
     const pct=(v*100).toFixed(1);
-    const color=PRESETS[classes[i].preset].shades[classes[i].shade];
+    const color=PRESETS[classes[i].preset].shades[1];
     results.innerHTML+=`
       <div>${classes[i].name}</div>
       <div class="barbg">
