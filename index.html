@@ -10,10 +10,9 @@
 <style>
 body{background:#0b1220;color:white;font-family:'Poppins',sans-serif;padding:20px;}
 h2{margin-top:0;font-weight:600;}
-input,button{padding:10px;margin-top:6px;border-radius:8px;border:none;font-size:15px;box-sizing:border-box;font-family:'Poppins',sans-serif;transition:0.3s;}
+input,button{padding:10px;margin-top:6px;border-radius:8px;border:none;font-size:15px;box-sizing:border-box;font-family:'Poppins',sans-serif;transition:0.2s all;}
 input.classNameInput{background:white;color:black;width:100%;text-align:left;font-weight:500;}
 button,input[type=file]{outline:none;width:100%;}
-button:hover,input[type=file]:hover{filter:brightness(1.1);box-shadow:0 0 12px currentColor;}
 .card{padding:14px;border-radius:14px;margin-bottom:14px;}
 .small{font-size:12px;opacity:.7;}
 .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
@@ -24,11 +23,22 @@ button:hover,input[type=file]:hover{filter:brightness(1.1);box-shadow:0 0 12px c
 .bar{height:18px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-size:12px;color:white;text-shadow:1px 1px 2px black;}
 .classname{padding:6px;border-radius:6px;margin-bottom:6px;font-weight:600;text-align:left;}
 .dropdown {position: relative; display:inline-block; width:100%;}
-.dropbtn{background-color:#3b82f6;color:white;padding:10px;font-size:15px;border-radius:8px;border:none;width:100%;cursor:pointer;text-align:left;transition:0.3s;font-family:'Poppins',sans-serif;}
-.dropbtn:hover{filter:brightness(1.1);box-shadow:0 0 12px currentColor;}
+.dropbtn{background-color:#3b82f6;color:white;padding:10px;font-size:15px;border-radius:8px;border:none;width:100%;cursor:pointer;text-align:left;transition:0.2s;font-family:'Poppins',sans-serif;}
 .dropdown-content{display:none;position:absolute;background-color:#020617;width:100%;z-index:1;border-radius:8px;overflow:hidden;font-family:'Poppins',sans-serif;}
-.dropdown-content a{color:white;padding:10px;text-decoration:none;display:block;cursor:pointer;transition:0.3s;font-weight:500;}
-.dropdown-content a:hover{filter:brightness(1.2);}
+.dropdown-content a{color:white;padding:10px;text-decoration:none;display:block;cursor:pointer;transition:0.2s;font-weight:500;}
+
+/* Hover glow */
+button:hover, .dropbtn:hover, input[type=file]:hover, input.classNameInput:hover {
+  box-shadow: 0 0 12px currentColor;
+  transform: scale(1.05);
+}
+
+/* Click animation (quick shrink + glow) */
+button:active, .dropbtn:active, input[type=file]:active, input.classNameInput:active {
+  transform: scale(0.97);
+  box-shadow: 0 0 6px currentColor inset;
+}
+
 .dropdown.show .dropdown-content{display:block;}
 </style>
 </head>
@@ -57,11 +67,22 @@ const PRESETS=[
   {name:"Purple", shades:["#3e0f5c","#6b21a8","#7e22ce"]}
 ];
 
-document.getElementById("addBtn").onclick=()=>{addClass();};
-document.getElementById("trainBtn").onclick=()=>{train();};
-document.getElementById("testInput").onchange=(e)=>{testImage(e);};
+// --- Glow flash on click ---
+function flashGlow(el) {
+  el.style.boxShadow = "0 0 14px currentColor";
+  el.style.transform = "scale(1.05)";
+  setTimeout(() => {
+    el.style.boxShadow = "";
+    el.style.transform = "";
+  }, 300);
+}
 
-window.onclick=(e)=>{
+// Event listeners
+document.getElementById("addBtn").onclick = (e) => { flashGlow(e.target); addClass(); };
+document.getElementById("trainBtn").onclick = (e) => { flashGlow(e.target); train(); };
+document.getElementById("testInput").onchange = (e) => { flashGlow(e.target); testImage(e); };
+
+window.onclick = (e) => {
   if(!e.target.matches('.dropbtn')){
     document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
   }
@@ -112,17 +133,18 @@ function render(){
     classList.appendChild(card);
 
     const fileInput=card.querySelector("input[type=file]");
-    fileInput.onchange=(e)=>addImages(e,i);
+    fileInput.onchange=(e)=>{ flashGlow(fileInput); addImages(e,i); };
 
     const btns=card.querySelectorAll("button");
-    btns[0].onclick=()=>deleteLastImage(i);
-    btns[1].onclick=()=>wipeImages(i);
-    btns[2].onclick=()=>deleteClass(i);
+    btns[0].onclick = () => { flashGlow(btns[0]); deleteLastImage(i); };
+    btns[1].onclick = () => { flashGlow(btns[1]); wipeImages(i); };
+    btns[2].onclick = () => { flashGlow(btns[2]); deleteClass(i); };
 
     const dropbtn=card.querySelector(".dropbtn");
     const dropdown=card.querySelector(".dropdown");
     dropbtn.onclick=(e)=>{
       e.stopPropagation();
+      flashGlow(dropbtn);
       dropdown.classList.toggle("show");
     };
   });
