@@ -10,9 +10,9 @@
 <style>
 body{background:#0b1220;color:white;font-family:'Poppins',sans-serif;padding:20px;}
 h2{margin-top:0;font-weight:600;}
-input,button{padding:10px;margin-top:6px;border-radius:8px;border:none;font-size:15px;box-sizing:border-box;font-family:'Poppins',sans-serif;transition:0.2s all;}
+input,button{padding:10px;margin-top:6px;border-radius:8px;border:none;font-size:15px;box-sizing:border-box;font-family:'Poppins',sans-serif;transition:0.2s;}
 input.classNameInput{background:white;color:black;width:100%;text-align:left;font-weight:500;}
-button,input[type=file]{outline:none;width:100%;}
+button,input[type=file]{outline:none;width:100%;cursor:pointer;}
 .card{padding:14px;border-radius:14px;margin-bottom:14px;}
 .small{font-size:12px;opacity:.7;}
 .row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
@@ -26,20 +26,34 @@ button,input[type=file]{outline:none;width:100%;}
 .dropbtn{background-color:#3b82f6;color:white;padding:10px;font-size:15px;border-radius:8px;border:none;width:100%;cursor:pointer;text-align:left;transition:0.2s;font-family:'Poppins',sans-serif;}
 .dropdown-content{display:none;position:absolute;background-color:#020617;width:100%;z-index:1;border-radius:8px;overflow:hidden;font-family:'Poppins',sans-serif;}
 .dropdown-content a{color:white;padding:10px;text-decoration:none;display:block;cursor:pointer;transition:0.2s;font-weight:500;}
+.dropdown-content a:hover{filter:brightness(1.2);}
+.dropdown.show .dropdown-content{display:block;}
 
-/* Hover glow */
+/* Hover pop-out effect */
 button:hover, .dropbtn:hover, input[type=file]:hover, input.classNameInput:hover {
-  box-shadow: 0 0 12px currentColor;
-  transform: scale(1.05);
+  box-shadow: 0 0 6px currentColor;
+  transform: scale(1.02);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-/* Click animation (quick shrink + glow) */
+/* Click/active effect */
 button:active, .dropbtn:active, input[type=file]:active, input.classNameInput:active {
   transform: scale(0.97);
-  box-shadow: 0 0 6px currentColor inset;
+  box-shadow: 0 0 3px currentColor inset;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
 }
 
-.dropdown.show .dropdown-content{display:block;}
+/* Mobile-friendly smaller scale */
+@media (max-width: 768px) {
+  button:hover, .dropbtn:hover, input[type=file]:hover, input.classNameInput:hover {
+    transform: scale(1.01);
+    box-shadow: 0 0 4px currentColor;
+  }
+  button:active, .dropbtn:active, input[type=file]:active, input.classNameInput:active {
+    transform: scale(0.98);
+    box-shadow: 0 0 2px currentColor inset;
+  }
+}
 </style>
 </head>
 <body>
@@ -67,26 +81,9 @@ const PRESETS=[
   {name:"Purple", shades:["#3e0f5c","#6b21a8","#7e22ce"]}
 ];
 
-// --- Glow flash on click ---
-function flashGlow(el) {
-  el.style.boxShadow = "0 0 14px currentColor";
-  el.style.transform = "scale(1.05)";
-  setTimeout(() => {
-    el.style.boxShadow = "";
-    el.style.transform = "";
-  }, 300);
-}
-
-// Event listeners
-document.getElementById("addBtn").onclick = (e) => { flashGlow(e.target); addClass(); };
-document.getElementById("trainBtn").onclick = (e) => { flashGlow(e.target); train(); };
-document.getElementById("testInput").onchange = (e) => { flashGlow(e.target); testImage(e); };
-
-window.onclick = (e) => {
-  if(!e.target.matches('.dropbtn')){
-    document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
-  }
-};
+document.getElementById("addBtn").onclick=()=>{addClass();};
+document.getElementById("trainBtn").onclick=()=>{train();};
+document.getElementById("testInput").onchange=(e)=>{testImage(e);};
 
 function addClass(){ 
   const name=document.getElementById("classInput").value.trim();
@@ -133,18 +130,17 @@ function render(){
     classList.appendChild(card);
 
     const fileInput=card.querySelector("input[type=file]");
-    fileInput.onchange=(e)=>{ flashGlow(fileInput); addImages(e,i); };
+    fileInput.onchange=(e)=>addImages(e,i);
 
     const btns=card.querySelectorAll("button");
-    btns[0].onclick = () => { flashGlow(btns[0]); deleteLastImage(i); };
-    btns[1].onclick = () => { flashGlow(btns[1]); wipeImages(i); };
-    btns[2].onclick = () => { flashGlow(btns[2]); deleteClass(i); };
+    btns[0].onclick=()=>deleteLastImage(i);
+    btns[1].onclick=()=>wipeImages(i);
+    btns[2].onclick=()=>deleteClass(i);
 
     const dropbtn=card.querySelector(".dropbtn");
     const dropdown=card.querySelector(".dropdown");
     dropbtn.onclick=(e)=>{
       e.stopPropagation();
-      flashGlow(dropbtn);
       dropdown.classList.toggle("show");
     };
   });
@@ -190,7 +186,7 @@ async function train(){
 
   for(let e=0; e<epochs; e++){
     for(let ci=0; ci<classes.length; ci++){
-      const imgs = classes[ci].images.slice(0,20); // max 20 per class
+      const imgs = classes[ci].images.slice(0,20); 
       for(const img of imgs){
         await tf.tidy(async ()=>{
           const t = tf.browser.fromPixels(img).resizeBilinear([224,224]).expandDims(0);
