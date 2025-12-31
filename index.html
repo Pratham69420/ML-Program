@@ -35,7 +35,7 @@ input,button{
 }
 input,button{width:100%;}
 
-button:hover,input:hover{
+button:hover,input:hover, label.upload-label:hover{
   box-shadow:0 0 8px var(--hover-glow);
   transform:scale(1.02);
 }
@@ -168,10 +168,6 @@ label.upload-label{
   transition: transform 0.15s, box-shadow 0.15s;
   margin-top:6px;
 }
-label.upload-label:hover{
-  box-shadow:0 0 8px var(--hover-glow);
-  transform:scale(1.02);
-}
 label.upload-label input{
   display:none;
 }
@@ -199,7 +195,10 @@ label.upload-label input{
 <div id="status"></div>
 
 <h3>Test Image</h3>
-<input id="testInput" type="file" accept="image/*" style="background:#3b82f6;color:white">
+<label class="upload-label" style="background:#3b82f6;color:white">
+  Upload Test Image
+  <input id="testInput" type="file" accept="image/*">
+</label>
 <div id="results"></div>
 
 <script>
