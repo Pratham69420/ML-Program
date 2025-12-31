@@ -15,12 +15,12 @@ body{
   font-family:'Poppins',sans-serif;
   padding:20px;
   transition:0.3s;
-  --hover-glow: #fff;
+  --hover-glow: #fff; /* dark mode glow */
 }
 body.light{
   background:#f5f5f5;
   color:#111;
-  --hover-glow: #000;
+  --hover-glow: #000; /* light mode glow */
 }
 
 input,button{
@@ -48,7 +48,6 @@ button:active,input:active{
   padding:14px;
   border-radius:14px;
   margin-bottom:14px;
-  min-height:160px; /* locked size */
 }
 .row{
   display:flex;
@@ -172,72 +171,10 @@ label.upload-label{
 label.upload-label input{
   display:none;
 }
-
-/* Prediction bars */
-.prediction-bar{
-  margin-top:14px;
-}
-.bar-container{
-  position: relative;
-  background: #1e293b;
-  border-radius: 10px;
-  overflow: hidden;
-  height: 24px;
-  margin-top: 4px;
-  width: 100%;
-}
-.bar-fill{
-  height: 100%;
-  width: 0%;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight:600;
-  transition: width 0.5s ease-in-out;
-}
-@keyframes pulse{
-  from{box-shadow:0 0 10px #fff,0 0 20px #fff55;}
-  to{box-shadow:0 0 20px #fff,0 0 40px #fff88;}
-}
-
-/* Popup */
-#popup{
-  position:fixed;
-  inset:0;
-  display:none;
-  align-items:center;
-  justify-content:center;
-  background:rgba(0,0,0,.6);
-  z-index:9999;
-}
-#popupBox{
-  background:#020617;
-  color:white;
-  padding:20px 24px;
-  border-radius:14px;
-  box-shadow:0 0 20px #22c55e;
-  animation:pop .25s ease;
-  max-width:90%;
-  text-align:center;
-}
-#popupBox button{
-  margin-top:14px;
-  background:#3b82f6;
-  color:white;
-  padding:6px 14px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
-}
-@keyframes pop{
-  from{transform:scale(.85);opacity:0}
-  to{transform:scale(1);opacity:1}
-}
 </style>
 </head>
-<body>
+
+<body class="anim">
 
 <h2>🧠 Easy ML Image Classifier</h2>
 
@@ -257,24 +194,17 @@ label.upload-label input{
 <div id="trainPct" class="small">0%</div>
 <div id="status"></div>
 
-<div id="results"></div>
-
-<label class="upload-label" style="background:#3b82f6;color:white;margin-top:20px">
+<h3>Test Image</h3>
+<label class="upload-label" style="background:#3b82f6;color:white">
   Upload Test Image
   <input id="testInput" type="file" accept="image/*">
 </label>
-
-<!-- Popup -->
-<div id="popup">
-  <div id="popupBox">
-    <div id="popupText"></div>
-    <button onclick="closePopup()">OK</button>
-  </div>
-</div>
+<div id="results"></div>
 
 <script>
 let net, classifier;
 let classes=[];
+const trainPct = document.getElementById("trainPct");
 
 const PRESETS=[
  {name:"Green",color:"#236635"},
@@ -287,16 +217,11 @@ const PRESETS=[
 addBtn.onclick=addClass;
 trainBtn.onclick=train;
 testInput.onchange=e=>testImage(e);
+
 const darkModeSwitch=document.getElementById("darkModeSwitch");
 darkModeSwitch.onchange=()=>document.body.classList.toggle("light", darkModeSwitch.checked);
-window.onclick=()=>document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
 
-function showPopup(msg){
-  const popup=document.getElementById("popup");
-  document.getElementById("popupText").innerHTML=msg;
-  popup.style.display="flex";
-}
-function closePopup(){document.getElementById("popup").style.display="none";}
+window.onclick=()=>document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
 
 function addClass(){
   const name=classInput.value.trim();
@@ -313,6 +238,7 @@ function render(){
     const card=document.createElement("div");
     card.className="card";
     card.style.background=color+"33";
+
     card.innerHTML=`
       <input class="classname-input" value="${c.name}" style="background:${color};color:white">
       <div class="small">${c.images.length} / 50 images</div>
@@ -335,10 +261,12 @@ function render(){
     classList.appendChild(card);
 
     card.querySelector(".classname-input").oninput=()=>classes[i].name=card.querySelector(".classname-input").value;
+
     const btns=card.querySelectorAll(".row button");
     btns[0].onclick=()=>{classes[i].images.pop();render();}
     btns[1].onclick=()=>{classes[i].images=[];render();}
     btns[2].onclick=()=>{classes.splice(i,1);render();}
+
     const dropbtn=card.querySelector(".dropbtn");
     const dropdown=card.querySelector(".dropdown");
     dropbtn.onclick=e=>{e.stopPropagation(); dropdown.classList.toggle("show");}
@@ -346,78 +274,147 @@ function render(){
 }
 
 function setPreset(i,p){classes[i].preset=p;render();}
-function addImages(e,i){
-  const imgs=[...e.target.files].slice(0,50-classes[i].images.length);
-  if(imgs.length+classes[i].images.length>50){
-    showPopup(`${classes[i].name} reached maximum 50 images!`);
-  }
-  imgs.forEach(f=>{
-    const img=new Image();
-    img.onload=()=>{classes[i].images.push(img); render();}
-    img.src=URL.createObjectURL(f);
-  });
-}
+function addImages(e,i){[...e.target.files].slice(0,50-classes[i].images.length).forEach(f=>{const img=new Image();img.onload=()=>{classes[i].images.push(img);render();};img.src=URL.createObjectURL(f);});}
 
 async function train(){
-  const lowImgs=classes.filter(c=>c.images.length<10).map(c=>c.name);
-  if(lowImgs.length>0){ showPopup(`You need 10+ images for: ${lowImgs.join(", ")}`); return;}
-  if(classes.length<2){ showPopup("Need at least 2 classes!"); return;}
-  if(!net) net=await mobilenet.load();
+  let bad = [];
 
-  classifier=tf.sequential();
-  classifier.add(tf.layers.dense({inputShape:[1024],units:classes.length,activation:"softmax"}));
-  classifier.compile({optimizer:"adam",loss:"sparseCategoricalCrossentropy"});
+  if(classes.length < 2){
+    showPopup("⚠️ You need at least 2 classes to train the model.");
+    return;
+  }
 
-  const epochs=10;
+  classes.forEach(c=>{
+    if(c.images.length < 5){
+      bad.push(c.name);
+    }
+  });
+
+  if(bad.length){
+    showPopup(`⚠️ These classes need at least 5 images:<br><b>${bad.join(", ")}</b>`);
+    return;
+  }
+
+  if(!net) net = await mobilenet.load();
+
+  classifier = tf.sequential();
+  classifier.add(
+    tf.layers.dense({
+      inputShape:[1024],
+      units:classes.length,
+      activation:"softmax"
+    })
+  );
+
+  classifier.compile({
+    optimizer:"adam",
+    loss:"sparseCategoricalCrossentropy"
+  });
+
   prog.style.width="0%";
-  trainPct.textContent="0%";
+  status.textContent="Training…";
 
-  for(let e=0;e<epochs;e++){
-    const percent=Math.round((e+1)/epochs*100);
-    prog.style.width=percent+"%";
-    trainPct.textContent=percent+"%";
+  for(let e=0;e<10;e++){
+    prog.style.width=((e+1)/10*100)+"%";
     await new Promise(r=>setTimeout(r,80));
   }
+
   status.textContent="✅ Training complete";
 }
 
-function testImage(e){
-  if(!classifier) return;
-  const img=new Image();
-  img.onload=()=>predict(img);
-  img.src=URL.createObjectURL(e.target.files[0]);
-}
-
+function testImage(e){if(!classifier) return; const img=new Image(); img.onload=()=>predict(img); img.src=URL.createObjectURL(e.target.files[0]);}
 function predict(img){
-  if(!classifier) return;
-  const t=tf.browser.fromPixels(img).expandDims(0);
-  const e=net.infer(t,true);
-  const p=classifier.predict(e).dataSync();
+  const t = tf.browser.fromPixels(img).expandDims(0);
+  const e = net.infer(t, true);
+  const p = classifier.predict(e).dataSync();
 
-  results.innerHTML=""; 
-  const highest=Math.max(...p);
-
+  results.innerHTML = "";
+  results.style.marginTop = "12px";
+  
   p.forEach((v,i)=>{
-    const barColor=PRESETS[classes[i].preset].color;
-    const barDiv=document.createElement("div");
-    barDiv.className="prediction-bar";
-    barDiv.innerHTML=`
-      <div style="font-weight:600; margin-bottom:4px;">${classes[i].name}</div>
-      <div class="bar-container">
-        <div class="bar-fill" style="background:${barColor};width:0%;">${(v*100).toFixed(1)}%</div>
-      </div>
-    `;
-    results.appendChild(barDiv);
+    const pct = (v * 100).toFixed(1);
+    const color = PRESETS[classes[i].preset].color;
 
-    const fill=barDiv.querySelector(".bar-fill");
-    setTimeout(()=>{fill.style.width=(v*100)+"%";},50);
+    // class name
+    const title = document.createElement("div");
+    title.style.fontSize = "16px";
+    title.style.fontWeight = "600";
+    title.style.color = "white";
+    title.style.marginBottom = "4px";
+    title.textContent = classes[i].name;
+    results.appendChild(title);
 
-    if(v===highest){
-      fill.style.boxShadow=`0 0 10px ${barColor}, 0 0 20px ${barColor}55`;
-      fill.style.animation="pulse 1s infinite alternate";
-    }
+    // bar background
+    const bg = document.createElement("div");
+    bg.style.background = "#1e293b";
+    bg.style.height = "20px";
+    bg.style.borderRadius = "10px";
+    bg.style.overflow = "hidden";
+    bg.style.marginBottom = "14px";
+    bg.style.position = "relative";
+
+    // animated bar
+    const bar = document.createElement("div");
+    bar.style.height = "20px";
+    bar.style.width = "0%";
+    bar.style.background = color;
+    bar.style.transition = "width 0.6s cubic-bezier(.2,.8,.2,1)";
+    bar.style.display = "flex";
+    bar.style.alignItems = "center";
+    bar.style.justifyContent = "center";
+    bar.style.color = "white";
+    bar.style.fontWeight = "600";
+    bar.style.fontSize = "13px";
+    bar.textContent = pct + "%";
+
+    bg.appendChild(bar);
+    results.appendChild(bg);
+
+    requestAnimationFrame(()=>{
+      bar.style.width = pct + "%";
+    });
   });
+
+  t.dispose();
+  e.dispose();
+}
+function showPopup(msg){
+  popupText.innerHTML = msg;
+  popup.style.display = "flex";
+}
+function closePopup(){
+  popup.style.display = "none";
 }
 </script>
+
+
+<div id="popup" style="
+position:fixed;
+inset:0;
+display:none;
+align-items:center;
+justify-content:center;
+background:rgba(0,0,0,.6);
+z-index:9999;">
+  <div id="popupBox" style="
+  background:#020617;
+  color:white;
+  padding:20px 24px;
+  border-radius:14px;
+  box-shadow:0 0 20px rgba(255,255,255,.25);
+  animation:pop .25s ease;
+  max-width:90%;
+  text-align:center;">
+    <div id="popupText"></div>
+    <button onclick="closePopup()" style="margin-top:14px;background:#3b82f6;color:white">OK</button>
+  </div>
+</div>
+
+<style>
+@keyframes pop{
+  from{transform:scale(.85);opacity:0}
+  to{transform:scale(1);opacity:1}
+}
+</style>
 </body>
 </html>
