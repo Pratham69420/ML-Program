@@ -15,14 +15,13 @@ body{
   font-family:'Poppins',sans-serif;
   padding:20px;
   transition:0.3s;
-  --hover-glow: #fff; /* dark mode glow */
+  --hover-glow: #fff;
 }
 body.light{
   background:#f5f5f5;
   color:#111;
-  --hover-glow: #000; /* light mode glow */
+  --hover-glow: #000;
 }
-
 input,button{
   padding:10px;
   margin-top:6px;
@@ -34,8 +33,7 @@ input,button{
   transition: transform 0.15s, box-shadow 0.15s;
 }
 input,button{width:100%;}
-
-button:hover,input:hover, label.upload-label:hover{
+button:hover,input:hover,label.upload-label:hover{
   box-shadow:0 0 8px var(--hover-glow);
   transform:scale(1.02);
 }
@@ -43,7 +41,6 @@ button:active,input:active{
   transform:scale(0.97);
   box-shadow:none;
 }
-
 .card{
   padding:14px;
   border-radius:14px;
@@ -55,7 +52,6 @@ button:active,input:active{
   margin-top:8px;
 }
 .row>*{flex:1}
-
 .classname-input{
   font-weight:600;
   border-radius:6px;
@@ -66,6 +62,7 @@ button:active,input:active{
 .small{
   font-size:12px;
   opacity:.7;
+  margin-top:4px;
 }
 .progressbg{
   background:#1e293b;
@@ -80,14 +77,23 @@ button:active,input:active{
   background:#22c55e;
   transition:.2s;
 }
-
-.dropdown{
-  position:relative;
-  width:100%;
+.pred-bar{
+  height:20px;
+  width:0;
+  border-radius:10px;
+  margin-top:6px;
+  transition: width 0.3s;
+  position: relative;
 }
-.dropbtn{
-  cursor:pointer;
+.pred-text{
+  position:absolute;
+  right:8px;
+  top:0;
+  font-weight:600;
+  color:white;
 }
+.dropdown{position:relative;width:100%;}
+.dropbtn{cursor:pointer;}
 .dropdown-content{
   display:none;
   position:absolute;
@@ -103,21 +109,13 @@ button:active,input:active{
 .dropdown-content div{
   padding:10px;
   cursor:pointer;
+  transition: all 0.15s;
 }
-.dropdown.show .dropdown-content{display:block}
-.dropdown-content{
-  box-shadow:0 0 12px rgba(0,0,0,0.6);
-}
-.dropdown-content div{
-  box-shadow: inset 0 0 0 rgba(0,0,0,0);
-  transition: box-shadow 0.15s, filter 0.15s;
-}
+.dropdown.show .dropdown-content{display:block;}
 .dropdown-content div:hover{
   filter: brightness(1.08);
   box-shadow: inset 0 0 10px rgba(255,255,255,0.18);
 }
-
-/* Dark mode switch */
 .switch-container{
   display:flex;
   gap:20px;
@@ -129,52 +127,23 @@ button:active,input:active{
   align-items:center;
   gap:8px;
 }
-.switch{
-  position: relative;
-  display:inline-block;
-  width:40px;
-  height:20px;
-}
+.switch{position: relative; display:inline-block; width:40px; height:20px;}
 .switch input{display:none;}
-.slider{
-  position:absolute;
-  cursor:pointer;
-  top:0;left:0;right:0;bottom:0;
-  background:#ccc;
-  border-radius:20px;
-  transition:.2s;
-}
-.slider:before{
-  position:absolute;
-  content:"";
-  height:16px;
-  width:16px;
-  left:2px;
-  bottom:2px;
-  background:white;
-  border-radius:50%;
-  transition:.2s;
-}
+.slider{position:absolute; cursor:pointer; top:0;left:0;right:0;bottom:0; background:#ccc; border-radius:20px; transition:.2s;}
+.slider:before{position:absolute; content:""; height:16px; width:16px; left:2px; bottom:2px; background:white; border-radius:50%; transition:.2s;}
 input:checked + .slider{background:#22c55e;}
 input:checked + .slider:before{transform:translateX(20px);}
-
-/* Upload label with glow effect */
-label.upload-label{
-  display:block;
-  border-radius:8px;
-  padding:10px;
-  cursor:pointer;
-  text-align:center;
-  transition: transform 0.15s, box-shadow 0.15s;
-  margin-top:6px;
-}
-label.upload-label input{
-  display:none;
-}
+label.upload-label{display:block;border-radius:8px;padding:10px;cursor:pointer;text-align:center;transition: transform 0.15s, box-shadow 0.15s;margin-top:6px;}
+label.upload-label input{display:none;}
+/* popup */
+#popup{position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.6); z-index:9999;}
+#popup div{background:#020617;color:white;padding:20px 24px;border-radius:14px;box-shadow:0 0 25px rgba(0,0,0,.6);text-align:center;max-width:320px;animation:pop .2s ease;}
+#popup button{margin-top:14px;background:#3b82f6;color:white;border:none;border-radius:8px;padding:10px 14px;width:100%;}
+@keyframes pop{from{transform:scale(.85);opacity:0} to{transform:scale(1);opacity:1);}
 </style>
 </head>
 
-<body class="anim">
+<body>
 
 <h2>🧠 Easy ML Image Classifier</h2>
 
@@ -186,7 +155,6 @@ label.upload-label input{
 
 <input id="classInput" placeholder="Class name" style="background:white;color:black">
 <button id="addBtn" style="background:#3b82f6;color:white">➕ Add Class</button>
-
 <div id="classList"></div>
 
 <button id="trainBtn" style="background:#3b82f6;color:white">🚀 Train Model</button>
@@ -201,10 +169,12 @@ label.upload-label input{
 </label>
 <div id="results"></div>
 
+<!-- Popup HTML -->
+<div id="popup"><div><div id="popupText"></div><button onclick="closePopup()">OK</button></div></div>
+
 <script>
 let net, classifier;
 let classes=[];
-
 const PRESETS=[
  {name:"Green",color:"#236635"},
  {name:"Blue",color:"#1e40af"},
@@ -212,18 +182,19 @@ const PRESETS=[
  {name:"Red",color:"#991b1b"},
  {name:"Purple",color:"#6b21a8"}
 ];
+const popup = document.getElementById("popup")
+const popupText = document.getElementById("popupText")
+function showPopup(msg){popupText.textContent=msg; popup.style.display="flex";}
+function closePopup(){popup.style.display="none";}
 
 addBtn.onclick=addClass;
 trainBtn.onclick=train;
 testInput.onchange=e=>testImage(e);
-
-const darkModeSwitch=document.getElementById("darkModeSwitch");
-darkModeSwitch.onchange=()=>document.body.classList.toggle("light", darkModeSwitch.checked);
-
+document.getElementById("darkModeSwitch").onchange=()=>document.body.classList.toggle("light", document.getElementById("darkModeSwitch").checked);
 window.onclick=()=>document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
 
 function addClass(){
-  const name=classInput.value.trim();
+  const name = classInput.value.trim();
   if(!name) return;
   classes.push({name,images:[],preset:0});
   classInput.value="";
@@ -233,11 +204,10 @@ function addClass(){
 function render(){
   classList.innerHTML="";
   classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].color;
-    const card=document.createElement("div");
+    const color = PRESETS[c.preset].color;
+    const card = document.createElement("div");
     card.className="card";
     card.style.background=color+"33";
-
     card.innerHTML=`
       <input class="classname-input" value="${c.name}" style="background:${color};color:white">
       <div class="small">${c.images.length} / 50 images</div>
@@ -260,12 +230,10 @@ function render(){
     classList.appendChild(card);
 
     card.querySelector(".classname-input").oninput=()=>classes[i].name=card.querySelector(".classname-input").value;
-
-    const btns=card.querySelectorAll(".row button");
+    const btns = card.querySelectorAll(".row button");
     btns[0].onclick=()=>{classes[i].images.pop();render();}
     btns[1].onclick=()=>{classes[i].images=[];render();}
     btns[2].onclick=()=>{classes.splice(i,1);render();}
-
     const dropbtn=card.querySelector(".dropbtn");
     const dropdown=card.querySelector(".dropdown");
     dropbtn.onclick=e=>{e.stopPropagation(); dropdown.classList.toggle("show");}
@@ -273,10 +241,36 @@ function render(){
 }
 
 function setPreset(i,p){classes[i].preset=p;render();}
-function addImages(e,i){[...e.target.files].slice(0,50-classes[i].images.length).forEach(f=>{const img=new Image();img.onload=()=>{classes[i].images.push(img);render();};img.src=URL.createObjectURL(f);});}
 
+function addImages(e,i){
+  const remaining = 50 - classes[i].images.length;
+  if(remaining <= 0){showPopup("This class already has 50 images (max)"); return;}
+  const files = [...e.target.files];
+  if(files.length > remaining){showPopup(`Only ${remaining} more images allowed for this class`);}
+  files.slice(0, remaining).forEach(f=>{
+    const img = new Image();
+    img.onload = ()=>{classes[i].images.push(img); render();}
+    img.src = URL.createObjectURL(f);
+  });
+}
+function showPopup(text){
+  const popup=document.getElementById("popup");
+  document.getElementById("popupText").innerHTML=text;
+  popup.style.display="flex";
+}
+function closePopup(){
+  document.getElementById("popup").style.display="none";
+}
 async function train(){
-  if(classes.length<2) return alert("Need 2+ classes");
+  if(classes.length<2) return showPopup("You need at least 2 classes!");
+  
+  // Find all classes with less than 10 images
+  const lowImages = classes.filter(c => c.images.length < 10);
+  if(lowImages.length > 0){
+    const names = lowImages.map(c=>c.name).join(", ");
+    return showPopup(`The following classes need at least 10 images: ${names}`);
+  }
+
   if(!net) net=await mobilenet.load();
 
   classifier=tf.sequential();
@@ -296,8 +290,61 @@ async function train(){
   document.getElementById("status").textContent="✅ Training complete";
 }
 
-function testImage(e){if(!classifier) return; const img=new Image(); img.onload=()=>predict(img); img.src=URL.createObjectURL(e.target.files[0]);}
-function predict(img){const t=tf.browser.fromPixels(img).expandDims(0); const e=net.infer(t,true); const p=classifier.predict(e).dataSync(); results.innerHTML=""; p.forEach((v,i)=>{results.innerHTML+=`${classes[i].name}: ${(v*100).toFixed(1)}%<br>`;});}
+function testImage(e){
+  if(!classifier) return;
+  const img=new Image();
+  img.onload=()=>predict(img);
+  img.src = URL.createObjectURL(e.target.files[0]);
+}
+
+function predict(img){
+  const t=tf.browser.fromPixels(img).expandDims(0);
+  const e=net.infer(t,true);
+  const p=classifier.predict(e).dataSync();
+  results.innerHTML="";
+  const maxIndex = p.indexOf(Math.max(...p));
+  p.forEach((v,i)=>{
+    const div = document.createElement("div");
+    div.className="pred-bar";
+    div.style.background = PRESETS[i].color;
+    div.style.width = (v*100)+"%";
+    if(i===maxIndex){div.style.boxShadow="0 0 8px #fff; animation: glow 1s infinite alternate;";}
+    const txt = document.createElement("span");
+    txt.className="pred-text";
+    txt.textContent = `${classes[i].name}: ${(v*100).toFixed(1)}%`;
+    div.appendChild(txt);
+    results.appendChild(div);
+  });
+}
+
 </script>
 </body>
+<div id="popup" style="
+position:fixed;
+inset:0;
+display:none;
+align-items:center;
+justify-content:center;
+background:rgba(0,0,0,.6);
+z-index:9999;">
+  <div id="popupBox" style="
+  background:#020617;
+  color:white;
+  padding:20px 24px;
+  border-radius:14px;
+  box-shadow:0 0 20px #3b82f6, 0 0 40px #3b82f6, 0 0 60px #3b82f6;
+  animation:pop .25s ease;
+  max-width:90%;
+  text-align:center;">
+    <div id="popupText"></div>
+    <button onclick="closePopup()" style="margin-top:14px;background:#3b82f6;color:white">OK</button>
+  </div>
+</div>
+
+<style>
+@keyframes pop{
+  from{transform:scale(.85);opacity:0}
+  to{transform:scale(1);opacity:1}
+}
+</style>
 </html>
