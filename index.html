@@ -33,6 +33,7 @@ button:hover,input:hover{
 button:active,input:active{
   transform:scale(0.97);
 }
+
 .card{
   padding:14px;
   border-radius:14px;
@@ -44,6 +45,7 @@ button:active,input:active{
   margin-top:8px;
 }
 .row>*{flex:1}
+
 .classname-input{
   font-weight:600;
   border-radius:6px;
@@ -54,7 +56,6 @@ button:active,input:active{
 .small{
   font-size:12px;
   opacity:.7;
-  margin-top:4px;
 }
 .progressbg{
   background:#1e293b;
@@ -69,7 +70,15 @@ button:active,input:active{
   background:#22c55e;
   transition:.2s;
 }
-.dropdown{position:relative}
+
+.dropdown{
+  position:relative;
+  width:100%;
+}
+.dropbtn{
+  cursor:pointer;
+}
+
 .dropdown-content{
   display:none;
   position:absolute;
@@ -115,7 +124,7 @@ button:active,input:active{
 
 <button id="trainBtn" style="background:#3b82f6;color:white">🚀 Train Model</button>
 <div class="progressbg"><div id="prog" class="progress"></div></div>
-<div id="trainPct" class="small">0%</div>
+<div id="trainPct" class="small">0%</div> <!-- ✅ Added training percentage -->
 <div id="status"></div>
 
 <h3>Test Image</h3>
@@ -157,16 +166,24 @@ function render(){
     card.style.background=color+"33";
 
     card.innerHTML=`
-      <input class="classname-input" value="${c.name}" style="background:${color};color:white">
+      <input class="classname-input" value="${c.name}"
+        style="background:${color};color:white">
+
       <div class="small">${c.images.length} / 50 images</div>
-      <input type="file" multiple accept="image/*" style="background:${color};color:white">
+
+      <input type="file" multiple accept="image/*"
+        style="background:${color};color:white">
+
       <div class="row">
         <button style="background:${color};color:white">Delete Last</button>
         <button style="background:${color};color:white">Wipe All</button>
         <button style="background:${color};color:white">Delete</button>
       </div>
+
       <div class="dropdown">
-        <button style="background:${color};color:white">${PRESETS[c.preset].name}</button>
+        <button class="dropbtn" style="background:${color};color:white">
+          ${PRESETS[c.preset].name}
+        </button>
         <div class="dropdown-content">
           ${PRESETS.map((p,pi)=>`
             <div style="background:${p.color};color:white"
@@ -176,18 +193,21 @@ function render(){
     `;
     classList.appendChild(card);
 
-    card.querySelector(".classname-input").oninput=e=>classes[i].name=e.target.value;
+    const nameInput=card.querySelector(".classname-input");
+    nameInput.oninput=()=>classes[i].name=nameInput.value;
+
     card.querySelector('input[type=file]').onchange=e=>addImages(e,i);
 
-    const btns=card.querySelectorAll("button");
+    const btns=card.querySelectorAll(".row button");
     btns[0].onclick=()=>{classes[i].images.pop();render();}
     btns[1].onclick=()=>{classes[i].images=[];render();}
     btns[2].onclick=()=>{classes.splice(i,1);render();}
 
-    const drop=card.querySelector(".dropdown");
-    card.querySelector(".dropdown button").onclick=e=>{
+    const dropbtn=card.querySelector(".dropbtn");
+    const dropdown=card.querySelector(".dropdown");
+    dropbtn.onclick=e=>{
       e.stopPropagation();
-      drop.classList.toggle("show");
+      dropdown.classList.toggle("show");
     };
   });
 }
@@ -218,10 +238,11 @@ async function train(){
   trainPct.textContent="0%";
 
   for(let e=0;e<epochs;e++){
-    const percent=Math.round((e+1)/epochs*100);
-    prog.style.width=percent+"%";
-    trainPct.textContent=percent+"%";
-    await new Promise(r=>setTimeout(r,100));
+    // ✅ Update progress and percentage
+    const percent = Math.round((e+1)/epochs*100);
+    prog.style.width = percent + "%";
+    trainPct.textContent = percent + "%";
+    await new Promise(r=>setTimeout(r,80));
   }
   status.textContent="✅ Training complete";
 }
