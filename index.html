@@ -171,6 +171,9 @@ label.upload-label{
 label.upload-label input{
   display:none;
 }
+/* Prediction text color by body class */
+body.light .prediction { color: black !important; }
+body:not(.light) .prediction { color: white !important; }
 </style>
 </head>
 
@@ -314,11 +317,11 @@ async function train(){
   prog.style.width="0%";
   status.textContent="Training…";
 
-  for(let e=0;e<10;e++){
-    prog.style.width=((e+1)/10*100)+"%";
-    await new Promise(r=>setTimeout(r,80));
-  }
-
+  for(let e=0;e<=100;e++){
+  prog.style.width = e + "%";
+  trainPct.textContent = e + "%";
+  await new Promise(r=>setTimeout(r,30));
+}
   status.textContent="✅ Training complete";
 }
 
@@ -339,7 +342,7 @@ function predict(img){
     const title = document.createElement("div");
     title.style.fontSize = "16px";
     title.style.fontWeight = "600";
-    title.style.color = "white";
+    title.className = "prediction";
     title.style.marginBottom = "4px";
     title.textContent = classes[i].name;
     results.appendChild(title);
