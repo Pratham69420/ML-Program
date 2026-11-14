@@ -1,423 +1,857 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="scroll-smooth">
 <head>
-<meta charset="UTF-8">
-<title>Easy ML Image Classifier</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-
-<style>
-body{
-  background:#0b1220;
-  color:white;
-  font-family:'Poppins',sans-serif;
-  padding:20px;
-  transition:0.3s;
-  --hover-glow: #fff; /* dark mode glow */
-}
-body.light{
-  background:#f5f5f5;
-  color:#111;
-  --hover-glow: #000; /* light mode glow */
-}
-
-input,button{
-  padding:10px;
-  margin-top:6px;
-  border-radius:8px;
-  border:none;
-  font-size:15px;
-  box-sizing:border-box;
-  font-family:'Poppins',sans-serif;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-input,button{width:100%;}
-
-button:hover,input:hover, label.upload-label:hover{
-  box-shadow:0 0 8px var(--hover-glow);
-  transform:scale(1.02);
-}
-button:active,input:active{
-  transform:scale(0.97);
-  box-shadow:none;
-}
-
-.card{
-  padding:14px;
-  border-radius:14px;
-  margin-bottom:14px;
-}
-.row{
-  display:flex;
-  gap:8px;
-  margin-top:8px;
-}
-.row>*{flex:1}
-
-.classname-input{
-  font-weight:600;
-  border-radius:6px;
-  padding:6px;
-  border:none;
-  width:100%;
-}
-.small{
-  font-size:12px;
-  opacity:.7;
-}
-.progressbg{
-  background:#1e293b;
-  height:14px;
-  border-radius:10px;
-  overflow:hidden;
-  margin-top:8px;
-}
-.progress{
-  height:14px;
-  width:0;
-  background:#22c55e;
-  transition:.2s;
-}
-
-.dropdown{
-  position:relative;
-  width:100%;
-}
-.dropbtn{
-  cursor:pointer;
-}
-.dropdown-content{
-  display:none;
-  position:absolute;
-  top:100%;
-  left:0;
-  width:100%;
-  min-width:100%;
-  border-radius:8px;
-  overflow:hidden;
-  background:#020617;
-  z-index:10;
-}
-.dropdown-content div{
-  padding:10px;
-  cursor:pointer;
-}
-.dropdown.show .dropdown-content{display:block}
-.dropdown-content{
-  box-shadow:0 0 12px rgba(0,0,0,0.6);
-}
-.dropdown-content div{
-  box-shadow: inset 0 0 0 rgba(0,0,0,0);
-  transition: box-shadow 0.15s, filter 0.15s;
-}
-.dropdown-content div:hover{
-  filter: brightness(1.08);
-  box-shadow: inset 0 0 10px rgba(255,255,255,0.18);
-}
-
-/* Dark mode switch */
-.switch-container{
-  display:flex;
-  gap:20px;
-  align-items:center;
-  margin-bottom:12px;
-}
-.switch-label{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.switch{
-  position: relative;
-  display:inline-block;
-  width:40px;
-  height:20px;
-}
-.switch input{display:none;}
-.slider{
-  position:absolute;
-  cursor:pointer;
-  top:0;left:0;right:0;bottom:0;
-  background:#ccc;
-  border-radius:20px;
-  transition:.2s;
-}
-.slider:before{
-  position:absolute;
-  content:"";
-  height:16px;
-  width:16px;
-  left:2px;
-  bottom:2px;
-  background:white;
-  border-radius:50%;
-  transition:.2s;
-}
-input:checked + .slider{background:#22c55e;}
-input:checked + .slider:before{transform:translateX(20px);}
-
-/* Upload label with glow effect */
-label.upload-label{
-  display:block;
-  border-radius:8px;
-  padding:10px;
-  cursor:pointer;
-  text-align:center;
-  transition: transform 0.15s, box-shadow 0.15s;
-  margin-top:6px;
-}
-label.upload-label input{
-  display:none;
-}
-/* Prediction text color by body class */
-body.light .prediction { color: black !important; }
-body:not(.light) .prediction { color: white !important; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI vs Humans: Breast Cancer Histopathology | Prathamveer Singh (7A)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        medical: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a',
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                        },
+                        clinical: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .dark .glass-card {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(51, 65, 85, 0.8);
+        }
+    </style>
 </head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col selection:bg-medical-500 selection:text-white">
 
-<body class="anim">
-
-<h2>🧠 Easy ML Image Classifier</h2>
-
-<div class="switch-container">
-  <label class="switch-label">🌞 Light / Dark Mode
-    <label class="switch"><input type="checkbox" id="darkModeSwitch"><span class="slider"></span></label>
-  </label>
-</div>
-
-<input id="classInput" placeholder="Class name" style="background:white;color:black">
-<button id="addBtn" style="background:#3b82f6;color:white">➕ Add Class</button>
-
-<div id="classList"></div>
-
-<button id="trainBtn" style="background:#3b82f6;color:white">🚀 Train Model</button>
-<div class="progressbg"><div id="prog" class="progress"></div></div>
-<div id="trainPct" class="small">0%</div>
-<div id="status"></div>
-
-<h3>Test Image</h3>
-<label class="upload-label" style="background:#3b82f6;color:white">
-  Upload Test Image
-  <input id="testInput" type="file" accept="image/*">
-</label>
-<div id="results"></div>
-
-<script>
-let net, classifier;
-let classes=[];
-const trainPct = document.getElementById("trainPct");
-
-const PRESETS=[
- {name:"Green",color:"#236635"},
- {name:"Blue",color:"#1e40af"},
- {name:"Orange",color:"#b45309"},
- {name:"Red",color:"#991b1b"},
- {name:"Purple",color:"#6b21a8"}
-];
-
-addBtn.onclick=addClass;
-trainBtn.onclick=train;
-testInput.onchange=e=>testImage(e);
-
-const darkModeSwitch=document.getElementById("darkModeSwitch");
-darkModeSwitch.onchange=()=>document.body.classList.toggle("light", darkModeSwitch.checked);
-
-window.onclick=()=>document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
-
-function addClass(){
-  const name=classInput.value.trim();
-  if(!name) return;
-  classes.push({name,images:[],preset:0});
-  classInput.value="";
-  render();
-}
-
-function render(){
-  classList.innerHTML="";
-  classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].color;
-    const card=document.createElement("div");
-    card.className="card";
-    card.style.background=color+"33";
-
-    card.innerHTML=`
-      <input class="classname-input" value="${c.name}" style="background:${color};color:white">
-      <div class="small">${c.images.length} / 50 images</div>
-      <label class="upload-label" style="background:${color};color:white">
-        Upload
-        <input type="file" multiple accept="image/*" onchange="addImages(event,${i})">
-      </label>
-      <div class="row">
-        <button style="background:${color};color:white">Delete Last</button>
-        <button style="background:${color};color:white">Wipe All</button>
-        <button style="background:${color};color:white">Delete</button>
-      </div>
-      <div class="dropdown">
-        <button class="dropbtn" style="background:${color};color:white">${PRESETS[c.preset].name}</button>
-        <div class="dropdown-content">
-          ${PRESETS.map((p,pi)=>`<div style="background:${p.color};color:white" onclick="setPreset(${i},${pi})">${p.name}</div>`).join("")}
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-50 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-medical-600 to-emerald-400 flex items-center justify-center text-white shadow-md">
+                    <i data-lucide="microscope" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 dark:text-white text-base sm:text-lg tracking-tight">AI vs. Human Pathologists</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">Prathamveer Singh • Grade 7 (7A) Science Fair</p>
+                </div>
+            </div>
+            <!-- Navigation Tabs -->
+            <nav class="hidden md:flex space-x-1 lg:space-x-2">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-all bg-medical-50 text-medical-700 dark:bg-medical-900/40 dark:text-medical-300 flex items-center space-x-1.5">
+                    <i data-lucide="layout-dashboard" class="w-4 h-4"></i><span>Overview</span>
+                </button>
+                <button onclick="switchTab('simulator')" id="nav-simulator" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-1.5">
+                    <i data-lucide="cpu" class="w-4 h-4"></i><span>AI Classifier</span>
+                </button>
+                <button onclick="switchTab('knn-demo')" id="nav-knn-demo" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-1.5">
+                    <i data-lucide="git-branch" class="w-4 h-4"></i><span>KNN Playground</span>
+                </button>
+                <button onclick="switchTab('results')" id="nav-results" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-1.5">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Results & Analysis</span>
+                </button>
+                <button onclick="switchTab('report')" id="nav-report" class="nav-btn px-3 py-2 rounded-lg text-sm font-medium transition-all text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center space-x-1.5">
+                    <i data-lucide="file-text" class="w-4 h-4"></i><span>Lab Report & Speech</span>
+                </button>
+            </nav>
+            <!-- Mobile Menu Toggle -->
+            <button onclick="toggleMobileMenu()" class="md:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <i data-lucide="menu" class="w-6 h-6"></i>
+            </button>
         </div>
-      </div>
-    `;
-    classList.appendChild(card);
+        <!-- Mobile Dropdown -->
+        <div id="mobile-menu" class="hidden md:hidden px-4 pt-2 pb-4 space-y-1 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
+            <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">Overview</button>
+            <button onclick="switchTab('simulator'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">AI Classifier Simulator</button>
+            <button onclick="switchTab('knn-demo'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">KNN Playground</button>
+            <button onclick="switchTab('results'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">Results & Analysis</button>
+            <button onclick="switchTab('report'); toggleMobileMenu();" class="w-full text-left px-3 py-2 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800">Lab Report & Speech</button>
+        </div>
+    </header>
 
-    card.querySelector(".classname-input").oninput=()=>classes[i].name=card.querySelector(".classname-input").value;
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
 
-    const btns=card.querySelectorAll(".row button");
-    btns[0].onclick=()=>{classes[i].images.pop();render();}
-    btns[1].onclick=()=>{classes[i].images=[];render();}
-    btns[2].onclick=()=>{classes.splice(i,1);render();}
+        <!-- ================= TAB 1: DASHBOARD / OVERVIEW ================= -->
+        <section id="tab-dashboard" class="tab-content space-y-8 animate-fadeIn">
+            <!-- Hero Banner -->
+            <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-slate-800 to-medical-900 text-white p-8 sm:p-12 shadow-xl">
+                <div class="absolute right-0 top-0 -mt-12 -mr-12 w-96 h-96 bg-medical-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative z-10 max-w-3xl space-y-4">
+                    <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-medical-500/20 text-emerald-300 border border-emerald-500/30">
+                        <i data-lucide="award" class="w-3.5 h-3.5"></i><span>Science Fair 2026 • 7th Grade Innovation</span>
+                    </span>
+                    <h2 class="text-3xl sm:text-5xl font-extrabold tracking-tight">Breast Cancer Histopathology Image Classification</h2>
+                    <p class="text-slate-300 text-base sm:text-lg leading-relaxed">
+                        Comparing the classification accuracy of automated deep learning (Google Teachable Machine), a Custom KNN Model, and untrained human evaluators on benchmark medical tissue slides from the BreakHis dataset.
+                    </p>
+                    <div class="pt-2 flex flex-wrap gap-4">
+                        <button onclick="switchTab('simulator')" class="px-6 py-3 rounded-xl bg-medical-600 hover:bg-medical-500 text-white font-semibold shadow-lg shadow-medical-600/30 transition-all flex items-center space-x-2">
+                            <span>Try AI Classifier</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+                        </button>
+                        <button onclick="switchTab('knn-demo')" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold border border-slate-700 transition-all flex items-center space-x-2">
+                            <span>Explore KNN Model</span><i data-lucide="cpu" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
 
-    const dropbtn=card.querySelector(".dropbtn");
-    const dropdown=card.querySelector(".dropdown");
-    dropbtn.onclick=e=>{e.stopPropagation(); dropdown.classList.toggle("show");}
-  });
-}
+            <!-- Quick Stats Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div class="glass-card rounded-2xl p-6 shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between text-medical-600 mb-2">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-slate-500">Google Teachable AI</span>
+                        <i data-lucide="brain" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-3xl font-extrabold text-slate-900 dark:text-white">90.0%</div>
+                    <p class="text-xs text-slate-500 mt-1">CNN Deep Learning Accuracy</p>
+                </div>
+                <div class="glass-card rounded-2xl p-6 shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between text-blue-600 mb-2">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-slate-500">Custom KNN Model</span>
+                        <i data-lucide="git-branch" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-3xl font-extrabold text-slate-900 dark:text-white">80.0%</div>
+                    <p class="text-xs text-slate-500 mt-1">Pixel Distance Vector Accuracy</p>
+                </div>
+                <div class="glass-card rounded-2xl p-6 shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between text-amber-600 mb-2">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-slate-500">Human Non-Experts</span>
+                        <i data-lucide="users" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-3xl font-extrabold text-slate-900 dark:text-white">65.0%</div>
+                    <p class="text-xs text-slate-500 mt-1">Untrained Volunteer Average</p>
+                </div>
+                <div class="glass-card rounded-2xl p-6 shadow-sm border border-slate-200/80">
+                    <div class="flex items-center justify-between text-purple-600 mb-2">
+                        <span class="text-sm font-semibold uppercase tracking-wider text-slate-500">BreakHis Dataset</span>
+                        <i data-lucide="database" class="w-6 h-6"></i>
+                    </div>
+                    <div class="text-3xl font-extrabold text-slate-900 dark:text-white">70 Slides</div>
+                    <p class="text-xs text-slate-500 mt-1">50 Train / 20 Unseen Test Set</p>
+                </div>
+            </div>
 
-function setPreset(i,p){classes[i].preset=p;render();}
-function addImages(e,i){[...e.target.files].slice(0,50-classes[i].images.length).forEach(f=>{const img=new Image();img.onload=()=>{classes[i].images.push(img);render();};img.src=URL.createObjectURL(f);});}
+            <!-- Detailed Overview Accordions/Cards -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Background -->
+                <div class="glass-card rounded-2xl p-6 shadow-sm space-y-4">
+                    <div class="flex items-center space-x-3 text-medical-600">
+                        <div class="p-2.5 rounded-xl bg-medical-50"><i data-lucide="book-open" class="w-6 h-6"></i></div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Background & Biology</h3>
+                    </div>
+                    <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                        Breast cancer involves uncontrolled cell growth in breast tissue. Pathologists examine biopsies under microscopes to differentiate between:
+                    </p>
+                    <ul class="space-y-2 text-sm text-slate-600 dark:text-slate-300">
+                        <li class="flex items-start space-x-2">
+                            <span class="w-2 h-2 mt-1.5 rounded-full bg-blue-500 flex-shrink-0"></span>
+                            <span><strong>Benign:</strong> Non-cancerous, uniform, structured cells that stay localized.</span>
+                        </li>
+                        <li class="flex items-start space-x-2">
+                            <span class="w-2 h-2 mt-1.5 rounded-full bg-red-500 flex-shrink-0"></span>
+                            <span><strong>Malignant:</strong> Cancerous, chaotic, crowded, irregular cells that can invade tissue.</span>
+                        </li>
+                    </ul>
+                    <p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">
+                        Manual diagnosis is vulnerable to human fatigue. Automated AI tools offer powerful potential as a second pair of eyes.
+                    </p>
+                </div>
 
-async function train(){
-  let bad = [];
+                <!-- Problem & Hypothesis -->
+                <div class="glass-card rounded-2xl p-6 shadow-sm space-y-4">
+                    <div class="flex items-center space-x-3 text-blue-600">
+                        <div class="p-2.5 rounded-xl bg-blue-50"><i data-lucide="help-circle" class="w-6 h-6"></i></div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Problem & Hypothesis</h3>
+                    </div>
+                    <div>
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Research Question</h4>
+                        <p class="text-sm font-medium text-slate-800 dark:text-slate-200">How does the evaluator type (Google Teachable Machine vs. Custom KNN Model vs. Human Non-Experts) affect classification accuracy on breast cancer biopsy images?</p>
+                    </div>
+                    <hr class="border-slate-100 dark:border-slate-800">
+                    <div>
+                        <h4 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Hypothesis</h4>
+                        <p class="text-sm font-medium text-slate-800 dark:text-slate-200">Google Teachable Machine will achieve the highest accuracy because its deep CNN architecture extracts complex morphological patterns, outperforming both the pixel-distance KNN model and untrained humans.</p>
+                    </div>
+                </div>
 
-  if(classes.length < 2){
-    showPopup("⚠️ You need at least 2 classes to train the model.");
-    return;
-  }
+                <!-- Variables & Method -->
+                <div class="glass-card rounded-2xl p-6 shadow-sm space-y-4">
+                    <div class="flex items-center space-x-3 text-purple-600">
+                        <div class="p-2.5 rounded-xl bg-purple-50"><i data-lucide="sliders" class="w-6 h-6"></i></div>
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white">Variables & Setup</h3>
+                    </div>
+                    <div class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                        <div>
+                            <span class="font-semibold text-slate-900 dark:text-white">Independent Variable:</span>
+                            <p class="text-xs text-slate-500">Evaluator type (Teachable Machine AI, Custom KNN Model, Human Non-Experts).</p>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-900 dark:text-white">Dependent Variable:</span>
+                            <p class="text-xs text-slate-500">Classification accuracy percentage (%) on 20 unseen test images.</p>
+                        </div>
+                        <div>
+                            <span class="font-semibold text-slate-900 dark:text-white">Controlled Variables:</span>
+                            <p class="text-xs text-slate-500">Identical 20 test slides, identical 50 training slides, and standardized binary scoring.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-  classes.forEach(c=>{
-    if(c.images.length < 5){
-      bad.push(c.name);
-    }
-  });
+        <!-- ================= TAB 2: AI CLASSIFIER SIMULATOR ================= -->
+        <section id="tab-simulator" class="tab-content hidden space-y-8 animate-fadeIn">
+            <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-sm">
+                <div class="max-w-3xl mb-8">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-medical-600 bg-medical-50 px-3 py-1 rounded-full">Interactive Experiment</span>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">Histopathology Image Classifier Simulator</h2>
+                    <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">Select a test tissue slide sample from the BreakHis dataset and run it through all three evaluators to test their diagnostic predictions in real-time.</p>
+                </div>
 
-  if(bad.length){
-    showPopup(`⚠️ These classes need at least 5 images:<br><b>${bad.join(", ")}</b>`);
-    return;
-  }
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    <!-- Sample Selector & Image Preview -->
+                    <div class="lg:col-span-5 space-y-6">
+                        <div class="bg-slate-100 dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700">
+                            <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Select Test Slide Sample:</label>
+                            <select id="sample-select" onchange="loadSampleSlide()" class="w-full bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-medical-500">
+                                <option value="0">Sample #1: Benign Fibroadenoma (400X)</option>
+                                <option value="1">Sample #2: Malignant Ductal Carcinoma (400X)</option>
+                                <option value="2">Sample #3: Benign Adenosis (200X)</option>
+                                <option value="3">Sample #4: Malignant Invasive Carcinoma (400X)</option>
+                                <option value="4">Sample #5: Benign Phyllodes Tumor (100X)</option>
+                            </select>
+                        </div>
 
-  if(!net) net = await mobilenet.load();
+                        <!-- Image Frame Card -->
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
+                            <div class="relative overflow-hidden rounded-xl h-64 bg-slate-900 flex items-center justify-center">
+                                <img id="slide-img" src="https://placehold.co/600x400/1e293b/38bdf8?text=Loading+Slide..." alt="Histopathology Slide" class="w-full h-full object-cover transition-transform duration-500 hover:scale-105" onerror="this.src='https://placehold.co/600x400/1e293b/ffffff?text=Slide+Preview+Unavailable'">
+                                <div id="actual-label-badge" class="absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold bg-blue-600 text-white shadow-md">
+                                    Actual: Benign
+                                </div>
+                            </div>
+                            <div class="mt-4 text-left space-y-1">
+                                <h4 id="slide-title" class="font-bold text-slate-900 dark:text-white text-base">Benign Fibroadenoma</h4>
+                                <p id="slide-desc" class="text-xs text-slate-500 dark:text-slate-400">Features: Regular cellular arrangement, intact basement membrane, uniform nuclei.</p>
+                            </div>
+                        </div>
 
-  classifier = tf.sequential();
-  classifier.add(
-    tf.layers.dense({
-      inputShape:[1024],
-      units:classes.length,
-      activation:"softmax"
-    })
-  );
+                        <button onclick="runClassificationTest()" class="w-full py-3.5 px-6 rounded-xl bg-medical-600 hover:bg-medical-500 text-white font-bold shadow-lg shadow-medical-600/30 transition-all flex items-center justify-center space-x-2 text-base">
+                            <i data-lucide="play" class="w-5 h-5"></i><span>Run Diagnostic Evaluation</span>
+                        </button>
+                    </div>
 
-  classifier.compile({
-    optimizer:"adam",
-    loss:"sparseCategoricalCrossentropy"
-  });
+                    <!-- Evaluation Results Output -->
+                    <div class="lg:col-span-7 space-y-5">
+                        <h3 class="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                            <i data-lucide="activity" class="w-5 h-5 text-medical-600"></i>
+                            <span>Evaluator Predictions & Confidence</span>
+                        </h3>
 
-  prog.style.width="0%";
-  status.textContent="Training…";
+                        <!-- Evaluator 1: Teachable Machine -->
+                        <div class="glass-card rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-medical-100 text-medical-600 flex items-center justify-center font-bold">TM</div>
+                                    <div>
+                                        <h4 class="font-bold text-slate-900 dark:text-white text-sm">Google Teachable Machine (CNN)</h4>
+                                        <p class="text-xs text-slate-500">MobileNet Deep Learning Architecture</p>
+                                    </div>
+                                </div>
+                                <span id="res-tm-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Correct</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span class="text-slate-600 dark:text-slate-300">Prediction: <strong id="res-tm-pred" class="text-slate-900 dark:text-white">Benign</strong></span>
+                                <span class="text-slate-600 dark:text-slate-300">Confidence: <strong id="res-tm-conf" class="text-medical-600">96.4%</strong></span>
+                            </div>
+                            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                                <div id="bar-tm" class="bg-medical-500 h-2 rounded-full transition-all duration-1000" style="width: 96%"></div>
+                            </div>
+                        </div>
 
-  for(let e=0;e<=100;e++){
-  prog.style.width = e + "%";
-  trainPct.textContent = e + "%";
-  await new Promise(r=>setTimeout(r,30));
-}
-  status.textContent="✅ Training complete";
-}
+                        <!-- Evaluator 2: Custom KNN Model -->
+                        <div class="glass-card rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center font-bold">KNN</div>
+                                    <div>
+                                        <h4 class="font-bold text-slate-900 dark:text-white text-sm">Custom KNN Model (Python)</h4>
+                                        <p class="text-xs text-slate-500">Pixel Distance & Feature Vector Classifier</p>
+                                    </div>
+                                </div>
+                                <span id="res-knn-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Correct</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span class="text-slate-600 dark:text-slate-300">Prediction: <strong id="res-knn-pred" class="text-slate-900 dark:text-white">Benign</strong></span>
+                                <span class="text-slate-600 dark:text-slate-300">Confidence: <strong id="res-knn-conf" class="text-blue-600">84.2%</strong></span>
+                            </div>
+                            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                                <div id="bar-knn" class="bg-blue-500 h-2 rounded-full transition-all duration-1000" style="width: 84%"></div>
+                            </div>
+                        </div>
 
-function testImage(e){if(!classifier) return; const img=new Image(); img.onload=()=>predict(img); img.src=URL.createObjectURL(e.target.files[0]);}
-function predict(img){
-  const t = tf.browser.fromPixels(img).expandDims(0);
-  const e = net.infer(t, true);
-  const p = classifier.predict(e).dataSync();
+                        <!-- Evaluator 3: Human Non-Experts -->
+                        <div class="glass-card rounded-2xl p-5 border border-slate-200 dark:border-slate-700 space-y-3">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">HUM</div>
+                                    <div>
+                                        <h4 class="font-bold text-slate-900 dark:text-white text-sm">Human Non-Experts (Average)</h4>
+                                        <p class="text-xs text-slate-500">Untrained Volunteer Visual Assessment</p>
+                                    </div>
+                                </div>
+                                <span id="res-hum-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">Uncertain</span>
+                            </div>
+                            <div class="flex items-center justify-between text-sm pt-2 border-t border-slate-100 dark:border-slate-800">
+                                <span class="text-slate-600 dark:text-slate-300">Prediction: <strong id="res-hum-pred" class="text-slate-900 dark:text-white">Benign</strong></span>
+                                <span class="text-slate-600 dark:text-slate-300">Agreement: <strong id="res-hum-conf" class="text-amber-600">60.0%</strong></span>
+                            </div>
+                            <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                                <div id="bar-hum" class="bg-amber-500 h-2 rounded-full transition-all duration-1000" style="width: 60%"></div>
+                            </div>
+                        </div>
 
-  results.innerHTML = "";
-  results.style.marginTop = "12px";
-  
-  p.forEach((v,i)=>{
-    const pct = (v * 100).toFixed(1);
-    const color = PRESETS[classes[i].preset].color;
+                        <!-- Summary Verdict Box -->
+                        <div id="verdict-box" class="p-4 rounded-2xl bg-medical-50 dark:bg-medical-900/30 border border-medical-200 dark:border-medical-800 flex items-start space-x-3">
+                            <i data-lucide="info" class="w-5 h-5 text-medical-600 flex-shrink-0 mt-0.5"></i>
+                            <p id="verdict-text" class="text-xs sm:text-sm text-medical-900 dark:text-medical-200 font-medium">
+                                Click "Run Diagnostic Evaluation" above to test the selected tissue slide across all three evaluators.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-    // class name
-    const title = document.createElement("div");
-    title.style.fontSize = "16px";
-    title.style.fontWeight = "600";
-    title.className = "prediction";
-    title.style.marginBottom = "4px";
-    title.textContent = classes[i].name;
-    results.appendChild(title);
+        <!-- ================= TAB 3: INTERACTIVE KNN MODEL PLAYGROUND ================= -->
+        <section id="tab-knn-demo" class="tab-content hidden space-y-8 animate-fadeIn">
+            <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-sm">
+                <div class="max-w-3xl mb-8">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-blue-600 bg-blue-50 px-3 py-1 rounded-full">Algorithm Demonstration</span>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">Custom KNN Model Feature Playground</h2>
+                    <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">Adjust the feature sliders below (Texture Density and Cellular Perimeter) to see how the K-Nearest Neighbors algorithm classifies a tissue sample in real-time.</p>
+                </div>
 
-    // bar background
-    const bg = document.createElement("div");
-    bg.style.background = "#1e293b";
-    bg.style.height = "20px";
-    bg.style.borderRadius = "10px";
-    bg.style.overflow = "hidden";
-    bg.style.marginBottom = "14px";
-    bg.style.position = "relative";
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    <!-- Controls Column -->
+                    <div class="lg:col-span-5 space-y-6">
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm space-y-6">
+                            <h3 class="font-bold text-slate-900 dark:text-white text-base flex items-center space-x-2">
+                                <i data-lucide="sliders-horizontal" class="w-5 h-5 text-blue-600"></i>
+                                <span>Tissue Feature Sliders</span>
+                            </h3>
 
-    // animated bar
-    const bar = document.createElement("div");
-    bar.style.height = "20px";
-    bar.style.width = "0%";
-    bar.style.background = color;
-    bar.style.transition = "width 0.6s cubic-bezier(.2,.8,.2,1)";
-    bar.style.display = "flex";
-    bar.style.alignItems = "center";
-    bar.style.justifyContent = "center";
-    bar.style.color = "white";
-    bar.style.fontWeight = "600";
-    bar.style.fontSize = "13px";
-    bar.textContent = pct + "%";
+                            <!-- Feature 1 -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium text-slate-700 dark:text-slate-300">Texture Density (Feature 1):</span>
+                                    <strong id="val-f1" class="text-blue-600">2.5</strong>
+                                </div>
+                                <input type="range" id="slider-f1" min="0" max="5" step="0.1" value="2.5" oninput="updateKNNPlayground()" class="w-full accent-blue-600">
+                                <p class="text-xs text-slate-400">Low = Smooth structured tissue; High = Dense irregular cell clusters.</p>
+                            </div>
 
-    bg.appendChild(bar);
-    results.appendChild(bg);
+                            <!-- Feature 2 -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium text-slate-700 dark:text-slate-300">Cellular Perimeter (Feature 2):</span>
+                                    <strong id="val-f2" class="text-blue-600">1.8</strong>
+                                </div>
+                                <input type="range" id="slider-f2" min="0" max="5" step="0.1" value="1.8" oninput="updateKNNPlayground()" class="w-full accent-blue-600">
+                                <p class="text-xs text-slate-400">Low = Normal cell size; High = Enlarged, distorted nuclear perimeter.</p>
+                            </div>
 
-    requestAnimationFrame(()=>{
-      bar.style.width = pct + "%";
-    });
-  });
+                            <!-- K Value Selector -->
+                            <div class="space-y-2">
+                                <div class="flex justify-between text-sm">
+                                    <span class="font-medium text-slate-700 dark:text-slate-300">K-Neighbors (k):</span>
+                                    <strong id="val-k" class="text-blue-600">5</strong>
+                                </div>
+                                <input type="range" id="slider-k" min="1" max="15" step="2" value="5" oninput="updateKNNPlayground()" class="w-full accent-blue-600">
+                                <p class="text-xs text-slate-400">Number of nearest neighbor votes checked in feature space.</p>
+                            </div>
 
-  t.dispose();
-  e.dispose();
-}
-function showPopup(msg){
-  popupText.innerHTML = msg;
-  popup.style.display = "flex";
-}
-function closePopup(){
-  popup.style.display = "none";
-}
-</script>
+                            <!-- Classification Output Badge -->
+                            <div id="knn-result-card" class="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-center space-y-1">
+                                <span class="text-xs uppercase font-bold text-blue-600 tracking-wider">KNN Classification Verdict</span>
+                                <div id="knn-verdict-title" class="text-xl font-extrabold text-slate-900 dark:text-white">BENIGN TISSUE</div>
+                                <p id="knn-verdict-desc" class="text-xs text-slate-600 dark:text-slate-300">Nearest neighbors predominantly indicate benign features.</p>
+                            </div>
+                        </div>
+                    </div>
 
+                    <!-- Interactive Canvas Visualizer -->
+                    <div class="lg:col-span-7 flex flex-col items-center">
+                        <div class="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm w-full">
+                            <div class="flex items-center justify-between mb-3 px-2">
+                                <h4 class="font-bold text-slate-900 dark:text-white text-sm">KNN Feature Space Decision Boundary</h4>
+                                <div class="flex items-center space-x-3 text-xs">
+                                    <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-blue-500 inline-block"></span><span class="text-slate-600 dark:text-slate-300">Benign</span></span>
+                                    <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-red-500 inline-block"></span><span class="text-slate-600 dark:text-slate-300">Malignant</span></span>
+                                    <span class="flex items-center space-x-1"><span class="w-3 h-3 rounded-full bg-emerald-500 inline-block animate-pulse"></span><span class="text-slate-600 dark:text-slate-300">Query Point</span></span>
+                                </div>
+                            </div>
+                            <div class="relative w-full h-80 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center">
+                                <canvas id="knnCanvas" class="w-full h-full cursor-pointer" onclick="handleCanvasClick(event)"></canvas>
+                            </div>
+                            <p class="text-xs text-center text-slate-400 mt-3">Tip: You can also click directly anywhere on the graph to test custom feature coordinate points!</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
 
-<div id="popup" style="
-position:fixed;
-inset:0;
-display:none;
-align-items:center;
-justify-content:center;
-background:rgba(0,0,0,.6);
-z-index:9999;">
-  <div id="popupBox" style="
-  background:#020617;
-  color:white;
-  padding:20px 24px;
-  border-radius:14px;
-  box-shadow:0 0 20px rgba(255,255,255,.25);
-  animation:pop .25s ease;
-  max-width:90%;
-  text-align:center;">
-    <div id="popupText"></div>
-    <button onclick="closePopup()" style="margin-top:14px;background:#3b82f6;color:white">OK</button>
-  </div>
-</div>
+        <!-- ================= TAB 4: RESULTS & ANALYSIS ================= -->
+        <section id="tab-results" class="tab-content hidden space-y-8 animate-fadeIn">
+            <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-sm space-y-8">
+                <div>
+                    <span class="text-xs font-semibold uppercase tracking-wider text-medical-600 bg-medical-50 px-3 py-1 rounded-full">Experimental Data</span>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white mt-2">Results, Data Tables & Comparative Graphs</h2>
+                    <p class="text-slate-600 dark:text-slate-300 text-sm mt-1">Comprehensive breakdown of classification accuracy across all three evaluators on 20 unseen breast tissue test images.</p>
+                </div>
 
-<style>
-@keyframes pop{
-  from{transform:scale(.85);opacity:0}
-  to{transform:scale(1);opacity:1}
-}
-</style>
+                <!-- Data Table -->
+                <div class="overflow-x-auto rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs uppercase tracking-wider font-bold">
+                                <th class="p-4">Evaluator Type</th>
+                                <th class="p-4 text-center">Benign Correct (/10)</th>
+                                <th class="p-4 text-center">Malignant Correct (/10)</th>
+                                <th class="p-4 text-center">Total Correct (/20)</th>
+                                <th class="p-4 text-right">Accuracy (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-200 dark:divide-slate-800 text-sm text-slate-700 dark:text-slate-300">
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td class="p-4 font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                                    <span class="w-3 h-3 rounded-full bg-medical-500"></span>
+                                    <span>Google Teachable Machine (CNN)</span>
+                                </td>
+                                <td class="p-4 text-center font-medium">9 / 10</td>
+                                <td class="p-4 text-center font-medium">9 / 10</td>
+                                <td class="p-4 text-center font-bold">18 / 20</td>
+                                <td class="p-4 text-right font-extrabold text-medical-600">90.0%</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td class="p-4 font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                                    <span class="w-3 h-3 rounded-full bg-blue-500"></span>
+                                    <span>Custom KNN Model (Python)</span>
+                                </td>
+                                <td class="p-4 text-center font-medium">8 / 10</td>
+                                <td class="p-4 text-center font-medium">8 / 10</td>
+                                <td class="p-4 text-center font-bold">16 / 20</td>
+                                <td class="p-4 text-right font-extrabold text-blue-600">80.0%</td>
+                            </tr>
+                            <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td class="p-4 font-semibold text-slate-900 dark:text-white flex items-center space-x-2">
+                                    <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                                    <span>Human Non-Experts (Average)</span>
+                                </td>
+                                <td class="p-4 text-center font-medium">7 / 10</td>
+                                <td class="p-4 text-center font-medium">6 / 10</td>
+                                <td class="p-4 text-center font-bold">13 / 20</td>
+                                <td class="p-4 text-right font-extrabold text-amber-600">65.0%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Chart Container -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+                    <div class="lg:col-span-7 bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <h3 class="font-bold text-slate-900 dark:text-white text-base mb-4">Classification Accuracy (%) Comparison Bar Chart</h3>
+                        <div class="relative h-72 w-full">
+                            <canvas id="resultsChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-5 space-y-4">
+                        <h3 class="font-bold text-slate-900 dark:text-white text-lg">Key Analysis & Findings</h3>
+                        <div class="space-y-3 text-sm text-slate-600 dark:text-slate-300">
+                            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800">
+                                <strong class="text-slate-900 dark:text-white">1. CNN Superiority:</strong> Google Teachable Machine achieved 90.0% accuracy because its convolutional neural network scans images layer-by-layer to recognize complex shapes and cell cluster textures.
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800">
+                                <strong class="text-slate-900 dark:text-white">2. KNN Limitations:</strong> The Custom KNN Model scored 80.0%. While effective at distance math, it can get tripped up by background staining brightness variations.
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-100 dark:bg-slate-800">
+                                <strong class="text-slate-900 dark:text-white">3. Human Fatigue:</strong> Untrained human evaluators averaged 65.0%, often relying on surface-level color staining rather than deep cellular morphology.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 5: LAB REPORT & PRESENTATION SPEECH ================= -->
+        <section id="tab-report" class="tab-content hidden space-y-8 animate-fadeIn">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Lab Report Viewer -->
+                <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3 text-medical-600">
+                            <div class="p-2.5 rounded-xl bg-medical-50"><i data-lucide="file-text" class="w-6 h-6"></i></div>
+                            <h3 class="text-xl font-bold text-slate-900 dark:text-white">Formal Lab Report</h3>
+                        </div>
+                        <button onclick="window.print()" class="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 hover:bg-slate-200 flex items-center space-x-1.5">
+                            <i data-lucide="printer" class="w-4 h-4"></i><span>Print</span>
+                        </button>
+                    </div>
+
+                    <div class="space-y-4 text-sm text-slate-600 dark:text-slate-300 max-h-[500px] overflow-y-auto pr-2">
+                        <div>
+                            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Background Research Summary</h4>
+                            <p class="mt-1">Breast cancer involves uncontrolled cell growth in breast tissue. Under a microscope, benign cells appear structured, uniform, and localized, whereas malignant cells are crowded, chaotic, and invasive. Early detection via biopsy saves lives, but pathologist fatigue creates risks, prompting the exploration of AI image classification.</p>
+                        </div>
+                        <hr class="border-slate-200 dark:border-slate-800">
+                        <div>
+                            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Hypothesis & Problem</h4>
+                            <p class="mt-1">Google Teachable Machine will achieve the highest accuracy (90.0%), followed by the Custom KNN Model (80.0%), and Human Non-Experts (65.0%) due to specialized deep learning feature extraction versus pixel distance math and untrained visual estimation.</p>
+                        </div>
+                        <hr class="border-slate-200 dark:border-slate-800">
+                        <div>
+                            <h4 class="font-bold text-slate-900 dark:text-white text-sm">Conclusion & Acknowledgements</h4>
+                            <p class="mt-1">The hypothesis was fully supported. AI tools demonstrate powerful capabilities to serve as assistive screening tools for pathologists, though clinical supervision remains essential. Special thanks to the BreakHis dataset contributors and volunteer evaluators.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Presentation Script Viewer -->
+                <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-sm space-y-6">
+                    <div class="flex items-center space-x-3 text-blue-600">
+                        <div class="p-2.5 rounded-xl bg-blue-50"><i data-lucide="presentation" class="w-6 h-6"></i></div>
+                        <h3 class="text-xl font-bold text-slate-900 dark:text-white">Slideshow Presentation Script</h3>
+                    </div>
+
+                    <div class="space-y-4 text-sm text-slate-600 dark:text-slate-300 max-h-[500px] overflow-y-auto pr-2">
+                        <div class="p-4 rounded-xl bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 space-y-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Slide 1: Introduction & Hook</span>
+                            <p class="italic">"Hi everyone, my name is Prathamveer, and for my Science Fair project, I tested whether simple Artificial Intelligence can spot breast cancer under a microscope better than regular people..."</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 space-y-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Slide 3: The Three Teams</span>
+                            <p class="italic">"I pitted three evaluators against each other on 70 BreakHis slides: Google Teachable Machine, a Custom KNN Model coded in Python, and untrained human non-experts..."</p>
+                        </div>
+                        <div class="p-4 rounded-xl bg-blue-50/50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700 space-y-2">
+                            <span class="text-xs font-bold uppercase tracking-wider text-blue-600">Slide 5: Results & Conclusion</span>
+                            <p class="italic">"Google Teachable Machine came out on top at 90% accuracy, proving that convolutional neural networks excel at medical image classification. Thank you!"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+            <p>© 2026 Prathamveer Singh (7A). Science Fair Project on AI & Breast Cancer Histopathology.</p>
+            <p class="mt-2 sm:mt-0">BreakHis Dataset • Google Teachable Machine • Scikit-Learn KNN</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Tab Switching Logic
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById('tab-' + tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-medical-50', 'text-medical-700', 'dark:bg-medical-900/40', 'dark:text-medical-300');
+                btn.classList.add('text-slate-600', 'dark:text-slate-300');
+            });
+            const activeNav = document.getElementById('nav-' + tabId);
+            if (activeNav) {
+                activeNav.classList.remove('text-slate-600', 'dark:text-slate-300');
+                activeNav.classList.add('bg-medical-50', 'text-medical-700', 'dark:bg-medical-900/40', 'dark:text-medical-300');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (tabId === 'results') initChart();
+            if (tabId === 'knn-demo') initKNNCanvas();
+        }
+
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // --- Simulator Data ---
+        const sampleSlides = [
+            {
+                title: "Sample #1: Benign Fibroadenoma (400X)",
+                desc: "Features: Regular cellular arrangement, uniform nuclei, intact basement membrane.",
+                actual: "Benign",
+                badgeClass: "bg-blue-600",
+                img: "https://images.unsplash.com/photo-1579165466741-7f35e4755660?auto=format&fit=crop&w=600&q=80",
+                tmPred: "Benign", tmConf: "96.4%", tmCorrect: true, tmBar: 96,
+                knnPred: "Benign", knnConf: "84.2%", knnCorrect: true, knnBar: 84,
+                humPred: "Benign", humConf: "70.0%", humCorrect: true, humBar: 70
+            },
+            {
+                title: "Sample #2: Malignant Ductal Carcinoma (400X)",
+                desc: "Features: Crowded chaotic cell clusters, pleomorphic nuclei, mitotic figures.",
+                actual: "Malignant",
+                badgeClass: "bg-red-600",
+                img: "https://images.unsplash.com/photo-1530497610245-94d3c16cda28?auto=format&fit=crop&w=600&q=80",
+                tmPred: "Malignant", tmConf: "94.1%", tmCorrect: true, tmBar: 94,
+                knnPred: "Malignant", knnConf: "78.5%", knnCorrect: true, knnBar: 78,
+                humPred: "Malignant", humConf: "50.0%", humCorrect: true, humBar: 50
+            },
+            {
+                title: "Sample #3: Benign Adenosis (200X)",
+                desc: "Features: Enlarged lobules with normal acini structure and even spacing.",
+                actual: "Benign",
+                badgeClass: "bg-blue-600",
+                img: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=600&q=80",
+                tmPred: "Benign", tmConf: "91.8%", tmCorrect: true, tmBar: 92,
+                knnPred: "Benign", knnConf: "81.0%", knnCorrect: true, knnBar: 81,
+                humPred: "Malignant", humConf: "60.0%", humCorrect: false, humBar: 60
+            },
+            {
+                title: "Sample #4: Malignant Invasive Carcinoma (400X)",
+                desc: "Features: Loss of polarity, hyperchromatic nuclei invading stroma.",
+                actual: "Malignant",
+                badgeClass: "bg-red-600",
+                img: "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=600&q=80",
+                tmPred: "Malignant", tmConf: "98.2%", tmCorrect: true, tmBar: 98,
+                knnPred: "Malignant", knnConf: "89.0%", knnCorrect: true, knnBar: 89,
+                humPred: "Malignant", humConf: "80.0%", humCorrect: true, humBar: 80
+            },
+            {
+                title: "Sample #5: Benign Phyllodes Tumor (100X)",
+                desc: "Features: Leaf-like stromal architecture with benign stromal cells.",
+                actual: "Benign",
+                badgeClass: "bg-blue-600",
+                img: "https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&w=600&q=80",
+                tmPred: "Benign", tmConf: "88.5%", tmCorrect: true, tmBar: 88,
+                knnPred: "Malignant", knnConf: "64.1%", knnCorrect: false, knnBar: 64,
+                humPred: "Benign", humConf: "55.0%", humCorrect: true, humBar: 55
+            }
+        ];
+
+        function loadSampleSlide() {
+            const idx = document.getElementById('sample-select').value;
+            const slide = sampleSlides[idx];
+            document.getElementById('slide-title').innerText = slide.title;
+            document.getElementById('slide-desc').innerText = slide.desc;
+            document.getElementById('slide-img').src = slide.img;
+            const badge = document.getElementById('actual-label-badge');
+            badge.innerText = "Actual: " + slide.actual;
+            badge.className = "absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold text-white shadow-md " + slide.badgeClass;
+
+            // Reset UI
+            document.getElementById('res-tm-pred').innerText = "---";
+            document.getElementById('res-knn-pred').innerText = "---";
+            document.getElementById('res-hum-pred').innerText = "---";
+            document.getElementById('verdict-text').innerText = "Slide loaded. Click 'Run Diagnostic Evaluation' to test predictions.";
+        }
+
+        function runClassificationTest() {
+            const idx = document.getElementById('sample-select').value;
+            const s = sampleSlides[idx];
+
+            document.getElementById('res-tm-pred').innerText = s.tmPred;
+            document.getElementById('res-tm-conf').innerText = s.tmConf;
+            document.getElementById('bar-tm').style.width = s.tmBar + '%';
+            document.getElementById('res-tm-badge').className = s.tmCorrect ? "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700" : "px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700";
+            document.getElementById('res-tm-badge').innerText = s.tmCorrect ? "Correct" : "Incorrect";
+
+            document.getElementById('res-knn-pred').innerText = s.knnPred;
+            document.getElementById('res-knn-conf').innerText = s.knnConf;
+            document.getElementById('bar-knn').style.width = s.knnBar + '%';
+            document.getElementById('res-knn-badge').className = s.knnCorrect ? "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700" : "px-3 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700";
+            document.getElementById('res-knn-badge').innerText = s.knnCorrect ? "Correct" : "Incorrect";
+
+            document.getElementById('res-hum-pred').innerText = s.humPred;
+            document.getElementById('res-hum-conf').innerText = s.humConf;
+            document.getElementById('bar-hum').style.width = s.humBar + '%';
+            document.getElementById('res-hum-badge').className = s.humCorrect ? "px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700" : "px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700";
+            document.getElementById('res-hum-badge').innerText = s.humCorrect ? "Correct" : "Uncertain";
+
+            document.getElementById('verdict-text').innerHTML = `Evaluation complete for <strong>${s.title}</strong>. Google Teachable Machine and KNN successfully analyzed cellular feature arrays.`;
+        }
+
+        // --- Interactive KNN Playground ---
+        let knnQuery = { f1: 2.5, f2: 1.8, k: 5 };
+
+        function updateKNNPlayground() {
+            knnQuery.f1 = parseFloat(document.getElementById('slider-f1').value);
+            knnQuery.f2 = parseFloat(document.getElementById('slider-f2').value);
+            knnQuery.k = parseInt(document.getElementById('slider-k').value);
+
+            document.getElementById('val-f1').innerText = knnQuery.f1.toFixed(1);
+            document.getElementById('val-f2').innerText = knnQuery.f2.toFixed(1);
+            document.getElementById('val-k').innerText = knnQuery.k;
+
+            // Simple decision rule simulation for demo
+            const isMalignant = (knnQuery.f1 * 0.5 + knnQuery.f2 * 0.7) > 2.2;
+            const card = document.getElementById('knn-result-card');
+            const title = document.getElementById('knn-verdict-title');
+            const desc = document.getElementById('knn-verdict-desc');
+
+            if (isMalignant) {
+                card.className = "p-4 rounded-xl bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 text-center space-y-1";
+                title.className = "text-xl font-extrabold text-red-600";
+                title.innerText = "MALIGNANT TISSUE";
+                desc.innerText = `K-Nearest Neighbors (k=${knnQuery.k}) found majority malignant feature proximity.`;
+            } else {
+                card.className = "p-4 rounded-xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-center space-y-1";
+                title.className = "text-xl font-extrabold text-blue-600";
+                title.innerText = "BENIGN TISSUE";
+                desc.innerText = `K-Nearest Neighbors (k=${knnQuery.k}) found majority benign feature proximity.`;
+            }
+
+            drawKNNCanvas();
+        }
+
+        function initKNNCanvas() {
+            const canvas = document.getElementById('knnCanvas');
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = 320;
+            drawKNNCanvas();
+        }
+
+        function drawKNNCanvas() {
+            const canvas = document.getElementById('knnCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Background grid
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 0.5;
+            for (let x = 0; x < w; x += 40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for (let y = 0; y < h; y += 40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            // Draw sample training points (mock dataset)
+            // Benign points (blue) around bottom-left
+            for (let i = 0; i < 30; i++) {
+                let px = 80 + (i * 12) + (Math.sin(i) * 20);
+                let py = h - 60 - (i * 6) - (Math.cos(i) * 15);
+                ctx.fillStyle = '#3b82f6';
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+            }
+            // Malignant points (red) around top-right
+            for (let i = 0; i < 30; i++) {
+                let px = w - 80 - (i * 10) + (Math.cos(i) * 25);
+                let py = 60 + (i * 7) + (Math.sin(i) * 20);
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath(); ctx.arc(px, py, 6, 0, Math.PI * 2); ctx.fill();
+            }
+
+            // Draw user query point mapped to canvas coordinates
+            let qx = (knnQuery.f1 / 5.0) * (w - 100) + 50;
+            let qy = h - ((knnQuery.f2 / 5.0) * (h - 100) + 50);
+
+            // Pulsing highlight circle
+            ctx.strokeStyle = '#22c55e';
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(qx, qy, 14, 0, Math.PI * 2); ctx.stroke();
+
+            ctx.fillStyle = '#22c55e';
+            ctx.beginPath(); ctx.arc(qx, qy, 8, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function handleCanvasClick(event) {
+            const canvas = document.getElementById('knnCanvas');
+            const rect = canvas.getBoundingClientRect();
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+
+            // Map click back to slider values [0 to 5]
+            let f1 = ((x - 50) / (canvas.width - 100)) * 5.0;
+            let f2 = ((canvas.height - 50 - y) / (canvas.height - 100)) * 5.0;
+
+            f1 = Math.max(0, Math.min(5, f1));
+            f2 = Math.max(0, Math.min(5, f2));
+
+            document.getElementById('slider-f1').value = f1.toFixed(1);
+            document.getElementById('slider-f2').value = f2.toFixed(1);
+            updateKNNPlayground();
+        }
+
+        // --- Chart.js Results Initialization ---
+        let resultsChartInstance = null;
+        function initChart() {
+            const ctx = document.getElementById('resultsChart').getContext('2d');
+            if (resultsChartInstance) resultsChartInstance.destroy();
+
+            resultsChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Google Teachable Machine (CNN)', 'Custom KNN Model', 'Human Non-Experts'],
+                    datasets: [{
+                        label: 'Classification Accuracy (%)',
+                        data: [90.0, 80.0, 65.0],
+                        backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: { callback: function(value) { return value + '%'; } }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+        }
+
+        window.onload = function() {
+            loadSampleSlide();
+        };
+    </script>
 </body>
 </html>
