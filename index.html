@@ -5,13 +5,6 @@
 <title>Easy ML Image Classifier</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script><!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Easy ML Image Classifier</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
 
@@ -206,8 +199,9 @@ body:not(.light) .prediction { color: white !important; }
 <div id="results"></div>
 
 <script>
-let net, classifier;
-let classes=[];
+let net;
+let trainingData = []; // Stores { classId, embedding, imgElement }
+let classes = [];
 const trainPct = document.getElementById("trainPct");
 
 const PRESETS=[
@@ -218,42 +212,51 @@ const PRESETS=[
  {name:"Purple",color:"#6b21a8"}
 ];
 
-addBtn.onclick=addClass;
-trainBtn.onclick=train;
-testInput.onchange=e=>testImage(e);
+addBtn.onclick = addClass;
+trainBtn.onclick = train;
+testInput.onchange = e => testImage(e);
 
-const darkModeSwitch=document.getElementById("darkModeSwitch");
-darkModeSwitch.onchange=()=>document.body.classList.toggle("light", darkModeSwitch.checked);
+const darkModeSwitch = document.getElementById("darkModeSwitch");
+darkModeSwitch.onchange = () => document.body.classList.toggle("light", darkModeSwitch.checked);
 
-window.onclick=()=>document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
+window.onclick = () => document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("show"));
+
+// Load MobileNet immediately on startup for high accuracy feature extraction
+async function initModel() {
+  status.textContent = "Loading AI model...";
+  net = await mobilenet.load();
+  status.textContent = "✅ AI Ready to Train";
+}
+initModel();
 
 function addClass(){
-  const name=classInput.value.trim();
+  const name = classInput.value.trim();
   if(!name) return;
-  classes.push({name,images:[],preset:0});
-  classInput.value="";
+  classes.push({name, images:[], preset:classes.length % PRESETS.length});
+  classInput.value = "";
   render();
 }
 
 function render(){
   classList.innerHTML="";
   classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].color;
-    const card=document.createElement("div");
-    card.className="card";
-    card.style.background=color+"33";
+    const color = PRESETS[c.preset].color;
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.background = color+"33";
+
+    const imageCount = trainingData.filter(d => d.classId === i).length;
 
     card.innerHTML=`
       <input class="classname-input" value="${c.name}" style="background:${color};color:white">
-      <div class="small">${c.images.length} / 50 images</div>
+      <div class="small">${imageCount} images trained</div>
       <label class="upload-label" style="background:${color};color:white">
-        Upload
+        Upload Training Images
         <input type="file" multiple accept="image/*" onchange="addImages(event,${i})">
       </label>
       <div class="row">
-        <button style="background:${color};color:white">Delete Last</button>
         <button style="background:${color};color:white">Wipe All</button>
-        <button style="background:${color};color:white">Delete</button>
+        <button style="background:${color};color:white">Delete Class</button>
       </div>
       <div class="dropdown">
         <button class="dropbtn" style="background:${color};color:white">${PRESETS[c.preset].name}</button>
@@ -264,87 +267,125 @@ function render(){
     `;
     classList.appendChild(card);
 
-    card.querySelector(".classname-input").oninput=()=>classes[i].name=card.querySelector(".classname-input").value;
+    card.querySelector(".classname-input").oninput = () => classes[i].name = card.querySelector(".classname-input").value;
 
-    const btns=card.querySelectorAll(".row button");
-    btns[0].onclick=()=>{classes[i].images.pop();render();}
-    btns[1].onclick=()=>{classes[i].images=[];render();}
-    btns[2].onclick=()=>{classes.splice(i,1);render();}
+    const btns = card.querySelectorAll(".row button");
+    btns[0].onclick = () => {
+      trainingData = trainingData.filter(d => d.classId !== i);
+      classes[i].images = [];
+      render();
+    };
+    btns[1].onclick = () => {
+      trainingData = trainingData.filter(d => d.classId !== i);
+      classes.splice(i,1);
+      render();
+    };
 
-    const dropbtn=card.querySelector(".dropbtn");
-    const dropdown=card.querySelector(".dropdown");
-    dropbtn.onclick=e=>{e.stopPropagation(); dropdown.classList.toggle("show");}
+    const dropbtn = card.querySelector(".dropbtn");
+    const dropdown = card.querySelector(".dropdown");
+    dropbtn.onclick = e => { e.stopPropagation(); dropdown.classList.toggle("show"); };
   });
 }
 
-function setPreset(i,p){classes[i].preset=p;render();}
-function addImages(e,i){[...e.target.files].slice(0,50-classes[i].images.length).forEach(f=>{const img=new Image();img.onload=()=>{classes[i].images.push(img);render();};img.src=URL.createObjectURL(f);});}
+function setPreset(i,p){ classes[i].preset=p; render(); }
+
+async function addImages(e,i){
+  const files = e.target.files;
+  if(!files.length) return;
+  status.textContent = "Extracting features...";
+
+  for(let f of files){
+    const reader = new FileReader();
+    await new Promise(resolve => {
+      reader.onload = async (evt) => {
+        const img = new Image();
+        img.src = evt.target.result;
+        img.onload = async () => {
+          if(net){
+            // Extract deep MobileNet feature embedding for high accuracy
+            const embedding = tf.tidy(() => net.infer(img, 'conv_preds'));
+            trainingData.push({ classId: i, embedding: embedding });
+            classes[i].images.push(img);
+            render();
+          }
+          resolve();
+        };
+      };
+      reader.readAsDataURL(f);
+    });
+  }
+  status.textContent = "✅ Images added successfully";
+}
 
 async function train(){
-  let bad = [];
-
   if(classes.length < 2){
     showPopup("⚠️ You need at least 2 classes to train the model.");
     return;
   }
 
-  classes.forEach(c=>{
-    if(c.images.length < 5){
-      bad.push(c.name);
-    }
+  let bad = false;
+  classes.forEach((c, i) => {
+    const count = trainingData.filter(d => d.classId === i).length;
+    if(count === 0) bad = true;
   });
 
-  if(bad.length){
-    showPopup(`⚠️ These classes need at least 5 images:<br><b>${bad.join(", ")}</b>`);
+  if(bad){
+    showPopup("⚠️ All classes must have at least one training image.");
     return;
   }
 
-  if(!net) net = await mobilenet.load();
-
-  classifier = tf.sequential();
-  classifier.add(
-    tf.layers.dense({
-      inputShape:[1024],
-      units:classes.length,
-      activation:"softmax"
-    })
-  );
-
-  classifier.compile({
-    optimizer:"adam",
-    loss:"sparseCategoricalCrossentropy"
-  });
-
-  prog.style.width="0%";
-  status.textContent="Training…";
-
-  for(let e=0;e<=100;e++){
-    prog.style.width = e + "%";
-    trainPct.textContent = e + "%";
-    await new Promise(r=>setTimeout(r,30));
-  }
-  status.textContent="✅ Training complete";
+  prog.style.width = "100%";
+  trainPct.textContent = "100%";
+  status.textContent = "✅ Model trained with high-accuracy feature vectors!";
 }
 
-function testImage(e){if(!classifier) return; const img=new Image(); img.onload=()=>predict(img); img.src=URL.createObjectURL(e.target.files[0]);}
-function predict(img){
-  const t = tf.browser.fromPixels(img).expandDims(0);
-  const e = net.infer(t, true);
-  const p = classifier.predict(e).dataSync();
+function testImage(e){
+  if(trainingData.length === 0){
+    showPopup("⚠️ Please train the model with images first!");
+    return;
+  }
+  const file = e.target.files[0];
+  if(!file) return;
 
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    const img = new Image();
+    img.onload = async () => {
+      predict(img);
+    };
+    img.src = evt.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+async function predict(img){
+  const testEmbedding = tf.tidy(() => net.infer(img, 'conv_preds'));
+  
+  let scores = {};
+  classes.forEach((_, idx) => scores[idx] = 0);
+
+  // High-accuracy K-Nearest Neighbor distance matching against trained embeddings
+  trainingData.forEach(item => {
+    const distance = tf.norm(tf.sub(item.embedding, testEmbedding)).dataSync()[0];
+    const similarity = Math.max(0, 1 / (1 + distance));
+    scores[item.classId] += similarity;
+  });
+
+  let total = Object.values(scores).reduce((a, b) => a + b, 0);
   results.innerHTML = "";
   results.style.marginTop = "12px";
   
-  p.forEach((v,i)=>{
-    const pct = (v * 100).toFixed(1);
-    const color = PRESETS[classes[i].preset].color;
+  classes.forEach((c, i)=>{
+    const rawScore = total > 0 ? (scores[i] / total) : 0;
+    const pct = (rawScore * 100).toFixed(1);
+    const color = PRESETS[c.preset].color;
 
     const title = document.createElement("div");
     title.style.fontSize = "16px";
     title.style.fontWeight = "600";
     title.className = "prediction";
     title.style.marginBottom = "4px";
-    title.textContent = classes[i].name;
+    title.textContent = c.name;
     results.appendChild(title);
 
     const bg = document.createElement("div");
@@ -376,9 +417,9 @@ function predict(img){
     });
   });
 
-  t.dispose();
-  e.dispose();
+  testEmbedding.dispose();
 }
+
 function showPopup(msg){
   popupText.innerHTML = msg;
   popup.style.display = "flex";
@@ -387,421 +428,6 @@ function closePopup(){
   popup.style.display = "none";
 }
 </script>
-
-<div id="popup" style="
-position:fixed;
-inset:0;
-display:none;
-align-items:center;
-justify-content:center;
-background:rgba(0,0,0,.6);
-z-index:9999;">
-  <div id="popupBox" style="
-  background:#020617;
-  color:white;
-  padding:20px 24px;
-  border-radius:14px;
-  box-shadow:0 0 20px rgba(255,255,255,.25);
-  animation:pop .25s ease;
-  max-width:90%;
-  text-align:center;">
-    <div id="popupText"></div>
-    <button onclick="closePopup()" style="margin-top:14px;background:#3b82f6;color:white">OK</button>
-  </div>
-</div>
-
-<style>
-@keyframes pop{
-  from{transform:scale(.85);opacity:0}
-  to{transform:scale(1);opacity:1}
-}
-</style>
-</body>
-</html>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-
-<style>
-body{
-  background:#0b1220;
-  color:white;
-  font-family:'Poppins',sans-serif;
-  padding:20px;
-  transition:0.3s;
-  --hover-glow: #fff; /* dark mode glow */
-}
-body.light{
-  background:#f5f5f5;
-  color:#111;
-  --hover-glow: #000; /* light mode glow */
-}
-
-input,button{
-  padding:10px;
-  margin-top:6px;
-  border-radius:8px;
-  border:none;
-  font-size:15px;
-  box-sizing:border-box;
-  font-family:'Poppins',sans-serif;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-input,button{width:100%;}
-
-button:hover,input:hover, label.upload-label:hover{
-  box-shadow:0 0 8px var(--hover-glow);
-  transform:scale(1.02);
-}
-button:active,input:active{
-  transform:scale(0.97);
-  box-shadow:none;
-}
-
-.card{
-  padding:14px;
-  border-radius:14px;
-  margin-bottom:14px;
-}
-.row{
-  display:flex;
-  gap:8px;
-  margin-top:8px;
-}
-.row>*{flex:1}
-
-.classname-input{
-  font-weight:600;
-  border-radius:6px;
-  padding:6px;
-  border:none;
-  width:100%;
-}
-.small{
-  font-size:12px;
-  opacity:.7;
-}
-.progressbg{
-  background:#1e293b;
-  height:14px;
-  border-radius:10px;
-  overflow:hidden;
-  margin-top:8px;
-}
-.progress{
-  height:14px;
-  width:0;
-  background:#22c55e;
-  transition:.2s;
-}
-
-.dropdown{
-  position:relative;
-  width:100%;
-}
-.dropbtn{
-  cursor:pointer;
-}
-.dropdown-content{
-  display:none;
-  position:absolute;
-  top:100%;
-  left:0;
-  width:100%;
-  min-width:100%;
-  border-radius:8px;
-  overflow:hidden;
-  background:#020617;
-  z-index:10;
-}
-.dropdown-content div{
-  padding:10px;
-  cursor:pointer;
-}
-.dropdown.show .dropdown-content{display:block}
-.dropdown-content{
-  box-shadow:0 0 12px rgba(0,0,0,0.6);
-}
-.dropdown-content div{
-  box-shadow: inset 0 0 0 rgba(0,0,0,0);
-  transition: box-shadow 0.15s, filter 0.15s;
-}
-.dropdown-content div:hover{
-  filter: brightness(1.08);
-  box-shadow: inset 0 0 10px rgba(255,255,255,0.18);
-}
-
-/* Dark mode switch */
-.switch-container{
-  display:flex;
-  gap:20px;
-  align-items:center;
-  margin-bottom:12px;
-}
-.switch-label{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-.switch{
-  position: relative;
-  display:inline-block;
-  width:40px;
-  height:20px;
-}
-.switch input{display:none;}
-.slider{
-  position:absolute;
-  cursor:pointer;
-  top:0;left:0;right:0;bottom:0;
-  background:#ccc;
-  border-radius:20px;
-  transition:.2s;
-}
-.slider:before{
-  position:absolute;
-  content:"";
-  height:16px;
-  width:16px;
-  left:2px;
-  bottom:2px;
-  background:white;
-  border-radius:50%;
-  transition:.2s;
-}
-input:checked + .slider{background:#22c55e;}
-input:checked + .slider:before{transform:translateX(20px);}
-
-/* Upload label with glow effect */
-label.upload-label{
-  display:block;
-  border-radius:8px;
-  padding:10px;
-  cursor:pointer;
-  text-align:center;
-  transition: transform 0.15s, box-shadow 0.15s;
-  margin-top:6px;
-}
-label.upload-label input{
-  display:none;
-}
-/* Prediction text color by body class */
-body.light .prediction { color: black !important; }
-body:not(.light) .prediction { color: white !important; }
-</style>
-</head>
-
-<body class="anim">
-
-<h2>🧠 Easy ML Image Classifier</h2>
-
-<div class="switch-container">
-  <label class="switch-label">🌞 Light / Dark Mode
-    <label class="switch"><input type="checkbox" id="darkModeSwitch"><span class="slider"></span></label>
-  </label>
-</div>
-
-<input id="classInput" placeholder="Class name" style="background:white;color:black">
-<button id="addBtn" style="background:#3b82f6;color:white">➕ Add Class</button>
-
-<div id="classList"></div>
-
-<button id="trainBtn" style="background:#3b82f6;color:white">🚀 Train Model</button>
-<div class="progressbg"><div id="prog" class="progress"></div></div>
-<div id="trainPct" class="small">0%</div>
-<div id="status"></div>
-
-<h3>Test Image</h3>
-<label class="upload-label" style="background:#3b82f6;color:white">
-  Upload Test Image
-  <input id="testInput" type="file" accept="image/*">
-</label>
-<div id="results"></div>
-
-<script>
-let net, classifier;
-let classes=[];
-const trainPct = document.getElementById("trainPct");
-
-const PRESETS=[
- {name:"Green",color:"#236635"},
- {name:"Blue",color:"#1e40af"},
- {name:"Orange",color:"#b45309"},
- {name:"Red",color:"#991b1b"},
- {name:"Purple",color:"#6b21a8"}
-];
-
-addBtn.onclick=addClass;
-trainBtn.onclick=train;
-testInput.onchange=e=>testImage(e);
-
-const darkModeSwitch=document.getElementById("darkModeSwitch");
-darkModeSwitch.onchange=()=>document.body.classList.toggle("light", darkModeSwitch.checked);
-
-window.onclick=()=>document.querySelectorAll(".dropdown").forEach(d=>d.classList.remove("show"));
-
-function addClass(){
-  const name=classInput.value.trim();
-  if(!name) return;
-  classes.push({name,images:[],preset:0});
-  classInput.value="";
-  render();
-}
-
-function render(){
-  classList.innerHTML="";
-  classes.forEach((c,i)=>{
-    const color=PRESETS[c.preset].color;
-    const card=document.createElement("div");
-    card.className="card";
-    card.style.background=color+"33";
-
-    card.innerHTML=`
-      <input class="classname-input" value="${c.name}" style="background:${color};color:white">
-      <div class="small">${c.images.length} / 50 images</div>
-      <label class="upload-label" style="background:${color};color:white">
-        Upload
-        <input type="file" multiple accept="image/*" onchange="addImages(event,${i})">
-      </label>
-      <div class="row">
-        <button style="background:${color};color:white">Delete Last</button>
-        <button style="background:${color};color:white">Wipe All</button>
-        <button style="background:${color};color:white">Delete</button>
-      </div>
-      <div class="dropdown">
-        <button class="dropbtn" style="background:${color};color:white">${PRESETS[c.preset].name}</button>
-        <div class="dropdown-content">
-          ${PRESETS.map((p,pi)=>`<div style="background:${p.color};color:white" onclick="setPreset(${i},${pi})">${p.name}</div>`).join("")}
-        </div>
-      </div>
-    `;
-    classList.appendChild(card);
-
-    card.querySelector(".classname-input").oninput=()=>classes[i].name=card.querySelector(".classname-input").value;
-
-    const btns=card.querySelectorAll(".row button");
-    btns[0].onclick=()=>{classes[i].images.pop();render();}
-    btns[1].onclick=()=>{classes[i].images=[];render();}
-    btns[2].onclick=()=>{classes.splice(i,1);render();}
-
-    const dropbtn=card.querySelector(".dropbtn");
-    const dropdown=card.querySelector(".dropdown");
-    dropbtn.onclick=e=>{e.stopPropagation(); dropdown.classList.toggle("show");}
-  });
-}
-
-function setPreset(i,p){classes[i].preset=p;render();}
-function addImages(e,i){[...e.target.files].slice(0,50-classes[i].images.length).forEach(f=>{const img=new Image();img.onload=()=>{classes[i].images.push(img);render();};img.src=URL.createObjectURL(f);});}
-
-async function train(){
-  let bad = [];
-
-  if(classes.length < 2){
-    showPopup("⚠️ You need at least 2 classes to train the model.");
-    return;
-  }
-
-  classes.forEach(c=>{
-    if(c.images.length < 5){
-      bad.push(c.name);
-    }
-  });
-
-  if(bad.length){
-    showPopup(`⚠️ These classes need at least 5 images:<br><b>${bad.join(", ")}</b>`);
-    return;
-  }
-
-  if(!net) net = await mobilenet.load();
-
-  classifier = tf.sequential();
-  classifier.add(
-    tf.layers.dense({
-      inputShape:[1024],
-      units:classes.length,
-      activation:"softmax"
-    })
-  );
-
-  classifier.compile({
-    optimizer:"adam",
-    loss:"sparseCategoricalCrossentropy"
-  });
-
-  prog.style.width="0%";
-  status.textContent="Training…";
-
-  for(let e=0;e<=100;e++){
-  prog.style.width = e + "%";
-  trainPct.textContent = e + "%";
-  await new Promise(r=>setTimeout(r,30));
-}
-  status.textContent="✅ Training complete";
-}
-
-function testImage(e){if(!classifier) return; const img=new Image(); img.onload=()=>predict(img); img.src=URL.createObjectURL(e.target.files[0]);}
-function predict(img){
-  const t = tf.browser.fromPixels(img).expandDims(0);
-  const e = net.infer(t, true);
-  const p = classifier.predict(e).dataSync();
-
-  results.innerHTML = "";
-  results.style.marginTop = "12px";
-  
-  p.forEach((v,i)=>{
-    const pct = (v * 100).toFixed(1);
-    const color = PRESETS[classes[i].preset].color;
-
-    // class name
-    const title = document.createElement("div");
-    title.style.fontSize = "16px";
-    title.style.fontWeight = "600";
-    title.className = "prediction";
-    title.style.marginBottom = "4px";
-    title.textContent = classes[i].name;
-    results.appendChild(title);
-
-    // bar background
-    const bg = document.createElement("div");
-    bg.style.background = "#1e293b";
-    bg.style.height = "20px";
-    bg.style.borderRadius = "10px";
-    bg.style.overflow = "hidden";
-    bg.style.marginBottom = "14px";
-    bg.style.position = "relative";
-
-    // animated bar
-    const bar = document.createElement("div");
-    bar.style.height = "20px";
-    bar.style.width = "0%";
-    bar.style.background = color;
-    bar.style.transition = "width 0.6s cubic-bezier(.2,.8,.2,1)";
-    bar.style.display = "flex";
-    bar.style.alignItems = "center";
-    bar.style.justifyContent = "center";
-    bar.style.color = "white";
-    bar.style.fontWeight = "600";
-    bar.style.fontSize = "13px";
-    bar.textContent = pct + "%";
-
-    bg.appendChild(bar);
-    results.appendChild(bg);
-
-    requestAnimationFrame(()=>{
-      bar.style.width = pct + "%";
-    });
-  });
-
-  t.dispose();
-  e.dispose();
-}
-function showPopup(msg){
-  popupText.innerHTML = msg;
-  popup.style.display = "flex";
-}
-function closePopup(){
-  popup.style.display = "none";
-}
-</script>
-
 
 <div id="popup" style="
 position:fixed;
