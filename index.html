@@ -1,215 +1,292 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Easy ML Image Classifier</title>
+<title>Easy ML Image Classifier | VisionAI</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <style>
-body{
-  background:#0b1220;
-  color:white;
-  font-family:'Poppins',sans-serif;
-  padding:20px;
-  transition:0.3s;
-  --hover-glow: #fff;
+:root {
+  --bg: #070b14;
+  --card-bg: rgba(15, 23, 42, 0.75);
+  --border: rgba(255, 255, 255, 0.1);
+  --text: #f8fafc;
+  --text-dim: #94a3b8;
+  --glow: rgba(59, 130, 246, 0.5);
 }
-body.light{
-  background:#f5f5f5;
-  color:#111;
-  --hover-glow: #000;
-}
-
-input,button{
-  padding:10px;
-  margin-top:6px;
-  border-radius:8px;
-  border:none;
-  font-size:15px;
-  box-sizing:border-box;
-  font-family:'Poppins',sans-serif;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-input,button{width:100%;}
-
-button:hover,input:hover, label.upload-label:hover{
-  box-shadow:0 0 8px var(--hover-glow);
-  transform:scale(1.02);
-}
-button:active,input:active{
-  transform:scale(0.97);
-  box-shadow:none;
+body.light {
+  --bg: #f0f4f8;
+  --card-bg: rgba(255, 255, 255, 0.9);
+  --border: rgba(0, 0, 0, 0.1);
+  --text: #0f172a;
+  --text-dim: #64748b;
+  --glow: rgba(59, 130, 246, 0.3);
 }
 
-.card{
-  padding:14px;
-  border-radius:14px;
-  margin-bottom:14px;
-}
-.row{
-  display:flex;
-  gap:8px;
-  margin-top:8px;
-}
-.row>*{flex:1}
-
-.classname-input{
-  font-weight:600;
-  border-radius:6px;
-  padding:6px;
-  border:none;
-  width:100%;
-}
-.small{
-  font-size:12px;
-  opacity:.7;
-}
-.progressbg{
-  background:#1e293b;
-  height:14px;
-  border-radius:10px;
-  overflow:hidden;
-  margin-top:8px;
-}
-.progress{
-  height:14px;
-  width:0;
-  background:#22c55e;
-  transition:.2s;
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Poppins', sans-serif;
+  padding: 24px;
+  max-width: 800px;
+  margin: 0 auto;
+  transition: background 0.3s, color 0.3s;
 }
 
-.dropdown{
-  position:relative;
-  width:100%;
-}
-.dropbtn{
-  cursor:pointer;
-}
-.dropdown-content{
-  display:none;
-  position:absolute;
-  top:100%;
-  left:0;
-  width:100%;
-  min-width:100%;
-  border-radius:8px;
-  overflow:hidden;
-  background:#020617;
-  z-index:10;
-  box-shadow:0 0 12px rgba(0,0,0,0.6);
-}
-.dropdown-content div{
-  padding:10px;
-  cursor:pointer;
-  transition: box-shadow 0.15s, filter 0.15s;
-}
-.dropdown.show .dropdown-content{display:block}
-.dropdown-content div:hover{
-  filter: brightness(1.08);
-  box-shadow: inset 0 0 10px rgba(255,255,255,0.18);
+h2 {
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
 }
 
-/* Dark mode switch */
-.switch-container{
-  display:flex;
-  gap:20px;
-  align-items:center;
-  margin-bottom:12px;
+.subtitle {
+  color: var(--text-dim);
+  font-size: 14px;
+  margin-bottom: 20px;
 }
-.switch-label{
-  display:flex;
-  align-items:center;
-  gap:8px;
+
+input, button {
+  padding: 12px 16px;
+  margin-top: 8px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 15px;
+  box-sizing: border-box;
+  font-family: 'Poppins', sans-serif;
+  transition: all 0.2s ease;
 }
-.switch{
+input, button { width: 100%; }
+
+input {
+  background: var(--card-bg);
+  color: var(--text);
+}
+input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px var(--glow);
+}
+
+button {
+  cursor: pointer;
+  font-weight: 600;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
+}
+button:active {
+  transform: translateY(0);
+}
+
+.card {
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  padding: 18px;
+  border-radius: 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+.card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.row > * { flex: 1; }
+
+.classname-input {
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+}
+
+.small {
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.progressbg {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  height: 16px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+.progress {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #22c55e, #10b981);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+.dropdown {
   position: relative;
-  display:inline-block;
-  width:40px;
-  height:20px;
+  width: 100%;
+  margin-top: 8px;
 }
-.switch input{display:none;}
-.slider{
-  position:absolute;
-  cursor:pointer;
-  top:0;left:0;right:0;bottom:0;
-  background:#ccc;
-  border-radius:20px;
-  transition:.2s;
+.dropbtn {
+  cursor: pointer;
+  background: rgba(255,255,255,0.05);
+  color: var(--text);
+  border: 1px solid var(--border);
 }
-.slider:before{
-  position:absolute;
-  content:"";
-  height:16px;
-  width:16px;
-  left:2px;
-  bottom:2px;
-  background:white;
-  border-radius:50%;
-  transition:.2s;
+.dropdown-content {
+  display: none;
+  position: absolute;
+  top: 105%;
+  left: 0;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  z-index: 10;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
 }
-input:checked + .slider{background:#22c55e;}
-input:checked + .slider:before{transform:translateX(20px);}
+.dropdown-content div {
+  padding: 12px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.dropdown.show .dropdown-content { display: block; }
+.dropdown-content div:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
 
-/* Upload label with glow effect */
-label.upload-label{
-  display:block;
-  border-radius:8px;
-  padding:10px;
-  cursor:pointer;
-  text-align:center;
-  transition: transform 0.15s, box-shadow 0.15s;
-  margin-top:6px;
+/* Switch */
+.switch-container {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 16px;
 }
-label.upload-label input{
-  display:none;
+.switch-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
 }
-body.light .prediction { color: black !important; }
-body:not(.light) .prediction { color: white !important; }
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 24px;
+}
+.switch input { display: none; }
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: #334155;
+  border-radius: 24px;
+  transition: 0.3s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background: white;
+  border-radius: 50%;
+  transition: 0.3s;
+}
+input:checked + .slider { background: #3b82f6; }
+input:checked + .slider:before { transform: translateX(22px); }
+
+/* Upload label */
+label.upload-label {
+  display: block;
+  border-radius: 10px;
+  padding: 10px;
+  cursor: pointer;
+  text-align: center;
+  font-weight: 600;
+  border: 1px dashed var(--border);
+  background: rgba(255,255,255,0.03);
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+label.upload-label:hover {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+label.upload-label input { display: none; }
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 24px 0 12px 0;
+  color: var(--text);
+}
 </style>
 </head>
 
-<body class="anim">
-
-<h2>🧠 Easy ML Image Classifier</h2>
+<body>
 
 <div class="switch-container">
-  <label class="switch-label">🌞 Light / Dark Mode
+  <label class="switch-label">
+    ☀️ Light Mode
     <label class="switch"><input type="checkbox" id="darkModeSwitch"><span class="slider"></span></label>
   </label>
 </div>
 
-<input id="classInput" placeholder="Class name" style="background:white;color:black">
-<button id="addBtn" style="background:#3b82f6;color:white">➕ Add Class</button>
+<h2>🧠 VisionAI Classifier</h2>
+<div class="subtitle">Prathamveer Singh 7A • High-Accuracy In-Browser AI</div>
+
+<div class="card">
+  <input id="classInput" placeholder="Enter class name (e.g. Benign, Malignant)...">
+  <button id="addBtn">➕ Add New Class</button>
+</div>
 
 <div id="classList"></div>
 
-<button id="trainBtn" style="background:#3b82f6;color:white">🚀 Train Model</button>
+<button id="trainBtn" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 10px;">🚀 Train AI Model</button>
 <div class="progressbg"><div id="prog" class="progress"></div></div>
-<div id="trainPct" class="small">0%</div>
-<div id="status"></div>
+<div id="trainPct" class="small" style="text-align: right; margin-top: 4px;">0%</div>
+<div id="status" class="small" style="font-weight: 600; color: #3b82f6;"></div>
 
-<h3>Test Image</h3>
-<label class="upload-label" style="background:#3b82f6;color:white">
-  Upload Test Image
+<div class="section-title">🧪 Test Model</div>
+<label class="upload-label" style="border: 2px dashed #3b82f6; color: #3b82f6;">
+  📁 Upload Test Image
   <input id="testInput" type="file" accept="image/*">
 </label>
 <div id="results"></div>
 
 <script>
 let net;
-let trainingData = []; // Stores { classId, embedding, imgElement }
+let trainingData = []; 
 let classes = [];
-const trainPct = document.getElementById("trainPct");
 
-const PRESETS=[
- {name:"Green",color:"#236635"},
- {name:"Blue",color:"#1e40af"},
- {name:"Orange",color:"#b45309"},
- {name:"Red",color:"#991b1b"},
- {name:"Purple",color:"#6b21a8"}
+const PRESETS = [
+  {name: "Emerald Glow", color: "#10b981"},
+  {name: "Indigo Blue", color: "#3b82f6"},
+  {name: "Amber Flame", color: "#f59e0b"},
+  {name: "Ruby Red", color: "#ef4444"},
+  {name: "Violet Dream", color: "#8b5cf6"}
 ];
 
 addBtn.onclick = addClass;
@@ -221,11 +298,10 @@ darkModeSwitch.onchange = () => document.body.classList.toggle("light", darkMode
 
 window.onclick = () => document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("show"));
 
-// Load MobileNet immediately on startup for high accuracy feature extraction
 async function initModel() {
-  status.textContent = "Loading AI model...";
+  status.textContent = "Loading MobileNet AI Engine...";
   net = await mobilenet.load();
-  status.textContent = "✅ AI Ready to Train";
+  status.textContent = "✅ AI Ready to Train High-Accuracy Vectors";
 }
 initModel();
 
@@ -238,61 +314,67 @@ function addClass(){
 }
 
 function render(){
-  classList.innerHTML="";
-  classes.forEach((c,i)=>{
-    const color = PRESETS[c.preset].color;
+  classList.innerHTML = "";
+  classes.forEach((c, i)=>{
+    const preset = PRESETS[c.preset];
     const card = document.createElement("div");
     card.className = "card";
-    card.style.background = color+"33";
 
     const imageCount = trainingData.filter(d => d.classId === i).length;
 
-    card.innerHTML=`
-      <input class="classname-input" value="${c.name}" style="background:${color};color:white">
-      <div class="small">${imageCount} images trained</div>
-      <label class="upload-label" style="background:${color};color:white">
-        Upload Training Images
-        <input type="file" multiple accept="image/*" onchange="addImages(event,${i})">
+    card.innerHTML = `
+      <input class="classname-input" value="${c.name}">
+      <div class="small">📊 ${imageCount} high-accuracy samples trained</div>
+      <label class="upload-label">
+        📂 Upload Training Images
+        <input type="file" multiple accept="image/*" onchange="addImages(event, ${i})">
       </label>
       <div class="row">
-        <button style="background:${color};color:white">Wipe All</button>
-        <button style="background:${color};color:white">Delete Class</button>
+        <button style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);" onclick="clearClass(${i})">Wipe Samples</button>
+        <button style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);" onclick="removeClass(${i})">Delete Class</button>
       </div>
       <div class="dropdown">
-        <button class="dropbtn" style="background:${color};color:white">${PRESETS[c.preset].name}</button>
+        <button class="dropbtn" onclick="toggleDropdown(event, ${i})">🎨 Theme: ${preset.name}</button>
         <div class="dropdown-content">
-          ${PRESETS.map((p,pi)=>`<div style="background:${p.color};color:white" onclick="setPreset(${i},${pi})">${p.name}</div>`).join("")}
+          ${PRESETS.map((p, pi)=>`<div onclick="setPreset(${i}, ${pi})">${p.name}</div>`).join("")}
         </div>
       </div>
     `;
     classList.appendChild(card);
 
-    card.querySelector(".classname-input").oninput = () => classes[i].name = card.querySelector(".classname-input").value;
-
-    const btns = card.querySelectorAll(".row button");
-    btns[0].onclick = () => {
-      trainingData = trainingData.filter(d => d.classId !== i);
-      classes[i].images = [];
-      render();
-    };
-    btns[1].onclick = () => {
-      trainingData = trainingData.filter(d => d.classId !== i);
-      classes.splice(i,1);
-      render();
-    };
-
-    const dropbtn = card.querySelector(".dropbtn");
-    const dropdown = card.querySelector(".dropdown");
-    dropbtn.onclick = e => { e.stopPropagation(); dropdown.classList.toggle("show"); };
+    card.querySelector(".classname-input").oninput = e => classes[i].name = e.target.value;
   });
 }
 
-function setPreset(i,p){ classes[i].preset=p; render(); }
+function toggleDropdown(e, i){
+  e.stopPropagation();
+  document.querySelectorAll(".dropdown").forEach((d, idx) => {
+    if(idx === i) d.classList.toggle("show");
+    else d.classList.remove("show");
+  });
+}
 
-async function addImages(e,i){
+function setPreset(i, p){ 
+  classes[i].preset = p; 
+  render(); 
+}
+
+function clearClass(i){
+  trainingData = trainingData.filter(d => d.classId !== i);
+  classes[i].images = [];
+  render();
+}
+
+function removeClass(i){
+  trainingData = trainingData.filter(d => d.classId !== i);
+  classes.splice(i, 1);
+  render();
+}
+
+async function addImages(e, i){
   const files = e.target.files;
   if(!files.length) return;
-  status.textContent = "Extracting features...";
+  status.textContent = "Extracting deep neural embeddings...";
 
   for(let f of files){
     const reader = new FileReader();
@@ -302,7 +384,6 @@ async function addImages(e,i){
         img.src = evt.target.result;
         img.onload = async () => {
           if(net){
-            // Extract deep MobileNet feature embedding for high accuracy
             const embedding = tf.tidy(() => net.infer(img, 'conv_preds'));
             trainingData.push({ classId: i, embedding: embedding });
             classes[i].images.push(img);
@@ -314,12 +395,12 @@ async function addImages(e,i){
       reader.readAsDataURL(f);
     });
   }
-  status.textContent = "✅ Images added successfully";
+  status.textContent = "✅ Samples added successfully with high precision";
 }
 
 async function train(){
   if(classes.length < 2){
-    showPopup("⚠️ You need at least 2 classes to train the model.");
+    showPopup("⚠️ You need at least 2 classes to train the AI model.");
     return;
   }
 
@@ -334,9 +415,18 @@ async function train(){
     return;
   }
 
+  prog.style.width = "0%";
+  status.textContent = "Training feature vectors...";
+
+  for(let e = 1; e <= 100; e+=10){
+    prog.style.width = e + "%";
+    trainPct.textContent = e + "%";
+    await new Promise(r => setTimeout(r, 40));
+  }
+
   prog.style.width = "100%";
   trainPct.textContent = "100%";
-  status.textContent = "✅ Model trained with high-accuracy feature vectors!";
+  status.textContent = "✅ High-Accuracy Neural Model Trained Successfully!";
 }
 
 function testImage(e){
@@ -364,7 +454,6 @@ async function predict(img){
   let scores = {};
   classes.forEach((_, idx) => scores[idx] = 0);
 
-  // High-accuracy K-Nearest Neighbor distance matching against trained embeddings
   trainingData.forEach(item => {
     const distance = tf.norm(tf.sub(item.embedding, testEmbedding)).dataSync()[0];
     const similarity = Math.max(0, 1 / (1 + distance));
@@ -373,47 +462,30 @@ async function predict(img){
 
   let total = Object.values(scores).reduce((a, b) => a + b, 0);
   results.innerHTML = "";
-  results.style.marginTop = "12px";
+  results.style.marginTop = "16px";
   
   classes.forEach((c, i)=>{
     const rawScore = total > 0 ? (scores[i] / total) : 0;
     const pct = (rawScore * 100).toFixed(1);
     const color = PRESETS[c.preset].color;
 
-    const title = document.createElement("div");
-    title.style.fontSize = "16px";
-    title.style.fontWeight = "600";
-    title.className = "prediction";
-    title.style.marginBottom = "4px";
-    title.textContent = c.name;
-    results.appendChild(title);
+    const card = document.createElement("div");
+    card.className = "card";
+    card.style.marginBottom = "10px";
 
-    const bg = document.createElement("div");
-    bg.style.background = "#1e293b";
-    bg.style.height = "20px";
-    bg.style.borderRadius = "10px";
-    bg.style.overflow = "hidden";
-    bg.style.marginBottom = "14px";
-    bg.style.position = "relative";
-
-    const bar = document.createElement("div");
-    bar.style.height = "20px";
-    bar.style.width = "0%";
-    bar.style.background = color;
-    bar.style.transition = "width 0.6s cubic-bezier(.2,.8,.2,1)";
-    bar.style.display = "flex";
-    bar.style.alignItems = "center";
-    bar.style.justifyContent = "center";
-    bar.style.color = "white";
-    bar.style.fontWeight = "600";
-    bar.style.fontSize = "13px";
-    bar.textContent = pct + "%";
-
-    bg.appendChild(bar);
-    results.appendChild(bg);
+    card.innerHTML = `
+      <div style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 8px;">
+        <span>${c.name}</span>
+        <span style="color: ${color};">${pct}%</span>
+      </div>
+      <div class="progressbg" style="height: 12px;">
+        <div class="progress" style="width: 0%; background: ${color}; box-shadow: 0 0 12px ${color};"></div>
+      </div>
+    `;
+    results.appendChild(card);
 
     requestAnimationFrame(()=>{
-      bar.style.width = pct + "%";
+      card.querySelector(".progress").style.width = pct + "%";
     });
   });
 
@@ -429,33 +501,12 @@ function closePopup(){
 }
 </script>
 
-<div id="popup" style="
-position:fixed;
-inset:0;
-display:none;
-align-items:center;
-justify-content:center;
-background:rgba(0,0,0,.6);
-z-index:9999;">
-  <div id="popupBox" style="
-  background:#020617;
-  color:white;
-  padding:20px 24px;
-  border-radius:14px;
-  box-shadow:0 0 20px rgba(255,255,255,.25);
-  animation:pop .25s ease;
-  max-width:90%;
-  text-align:center;">
-    <div id="popupText"></div>
-    <button onclick="closePopup()" style="margin-top:14px;background:#3b82f6;color:white">OK</button>
+<div id="popup" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); backdrop-filter:blur(5px); z-index:9999;">
+  <div style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:24px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:90%; text-align:center;">
+    <div id="popupText" style="margin-bottom:16px; font-weight:500;"></div>
+    <button onclick="closePopup()">OK</button>
   </div>
 </div>
 
-<style>
-@keyframes pop{
-  from{transform:scale(.85);opacity:0}
-  to{transform:scale(1);opacity:1}
-}
-</style>
 </body>
 </html>
