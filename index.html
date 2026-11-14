@@ -8,6 +8,9 @@
   <!-- TensorFlow.js and MobileNet -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
+  <!-- Google API Loader for Drive Picker -->
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
   <style>
     body { font-size: 16px; background-color: #0f172a; color: #f8fafc; }
   </style>
@@ -44,8 +47,8 @@
             <button onclick="triggerUpload(0)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
               📁 Upload Local Images
             </button>
-            <button onclick="triggerDrive(0)" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
-              ☁️ Pick from Google Drive
+            <button onclick="openGoogleDrivePicker(0)" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              ☁️ Open Google Drive
             </button>
           </div>
           <div class="thumbnails flex gap-2 overflow-x-auto py-2 mt-2 min-h-[50px]"></div>
@@ -61,8 +64,8 @@
             <button onclick="triggerUpload(1)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
               📁 Upload Local Images
             </button>
-            <button onclick="triggerDrive(1)" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
-              ☁️ Pick from Google Drive
+            <button onclick="openGoogleDrivePicker(1)" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              ☁️ Open Google Drive
             </button>
           </div>
           <div class="thumbnails flex gap-2 overflow-x-auto py-2 mt-2 min-h-[50px]"></div>
@@ -110,9 +113,37 @@
   <!-- Script logic -->
   <script>
     let net;
-    let trainingData = []; // { classId, embedding, imgElement }
+    let trainingData = []; 
     let activeTrainingClass = 0;
     let isTrained = false;
+
+    // Google Picker Credentials Setup
+    const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // Replace with your Google Cloud OAuth Client ID if using Drive Picker
+    const API_KEY = 'YOUR_GOOGLE_API_KEY'; // Replace with your Google API Key
+    const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+    let tokenClient;
+    let googleDriveLoaded = false;
+
+    function gapiLoaded() {
+      gapi.load('client:picker', initializeGapiClient);
+    }
+
+    async function initializeGapiClient() {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: DISCOVERY_DOCS,
+      });
+      googleDriveLoaded = true;
+    }
+
+    function gisLoaded() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+      });
+    }
 
     async function loadMobilenet() {
       const status = document.getElementById('model-status');
@@ -132,18 +163,55 @@
       document.getElementById('hidden-file-input').click();
     }
 
-    function triggerDrive(classId) {
+    function openGoogleDrivePicker(classId) {
       activeTrainingClass = classId;
-      // Simulated Google Drive picker integration fallback for web app
-      const url = prompt("Enter image URL or simulated Google Drive file link:");
-      if (url) {
+      if (!googleDriveLoaded) {
+        // Fallback if Google API keys aren't configured yet: opens file picker which accesses Drive app on phone
+        document.getElementById('hidden-file-input').click();
+        return;
+      }
+      tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+          throw (resp);
+        }
+        createPicker();
+      };
+      if (gapi.client.getToken() === null) {
+        tokenClient.requestAccessToken({prompt: 'consent'});
+      } else {
+        tokenClient.requestAccessToken({prompt: ''});
+      }
+    }
+
+    function createPicker() {
+      const view = new google.picker.View(google.picker.ViewId.DOCS);
+      view.setMimeTypes('image/png,image/jpeg,image/jpg');
+      const picker = new google.picker.PickerBuilder()
+          .enableFeature(google.picker.Feature.NAV_HIDDEN)
+          .setAppId(CLIENT_ID)
+          .setOAuthToken(gapi.client.getToken().access_token)
+          .addView(view)
+          .setCallback(pickerCallback)
+          .build();
+      picker.setVisible(true);
+    }
+
+    async function pickerCallback(data) {
+      if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+        const doc = data[google.picker.Response.DOCUMENTS][0];
+        const fileId = doc[google.picker.Document.ID];
+        // Fetch file content from Google Drive API
+        const response = await gapi.client.drive.files.get({
+          fileId: fileId,
+          alt: 'media'
+        });
+        // Load into image processor
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.src = url;
+        img.src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`;
         img.onload = async () => {
           await addSampleFromImage(activeTrainingClass, img);
         };
-        img.onerror = () => alert("Could not load image from URL.");
       }
     }
 
@@ -151,28 +219,13 @@
       const files = event.target.files;
       if (!files || files.length === 0) return;
 
-      const card = document.querySelectorAll('.class-card')[activeTrainingClass];
-      const thumbContainer = card.querySelector('.thumbnails');
-      const counter = card.querySelector('.sample-counter');
-
       for (let file of files) {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const img = new Image();
           img.src = e.target.result;
           img.onload = async () => {
-            // Display thumbnail
-            const thumb = document.createElement('img');
-            thumb.src = img.src;
-            thumb.className = 'w-12 h-12 object-cover rounded-lg border border-slate-700 flex-shrink-0';
-            thumbContainer.appendChild(thumb);
-
-            // Extract embedding using MobileNet
-            if (net) {
-              const embedding = tf.tidy(() => net.infer(img, 'conv_preds'));
-              trainingData.push({ classId: activeTrainingClass, embedding: embedding, imgElement: img });
-              updateCounters();
-            }
+            await addSampleFromImage(activeTrainingClass, img);
           };
         };
         reader.readAsDataURL(file);
@@ -183,7 +236,7 @@
     async function addSampleFromImage(classId, img) {
       const card = document.querySelectorAll('.class-card')[classId];
       const thumbContainer = card.querySelector('.thumbnails');
-      
+
       const thumb = document.createElement('img');
       thumb.src = img.src;
       thumb.className = 'w-12 h-12 object-cover rounded-lg border border-slate-700 flex-shrink-0';
@@ -220,8 +273,8 @@
           <button onclick="triggerUpload(${classId})" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
             📁 Upload Local Images
           </button>
-          <button onclick="triggerDrive(${classId})" class="bg-slate-700 hover:bg-slate-600 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
-            ☁️ Pick from Google Drive
+          <button onclick="openGoogleDrivePicker(${classId})" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+            ☁️ Open Google Drive
           </button>
         </div>
         <div class="thumbnails flex gap-2 overflow-x-auto py-2 mt-2 min-h-[50px]"></div>
@@ -257,7 +310,6 @@
         img.onload = async () => {
           const testEmbedding = tf.tidy(() => net.infer(img, 'conv_preds'));
           
-          // Calculate similarity against training samples
           const classCards = document.querySelectorAll('.class-card');
           let scores = {};
           classCards.forEach((_, idx) => scores[idx] = 0);
@@ -268,7 +320,6 @@
             scores[item.classId] += similarity;
           });
 
-          // Normalize scores to percentages
           let total = Object.values(scores).reduce((a, b) => a + b, 0);
           const resultsDiv = document.getElementById('prediction-results');
           resultsDiv.innerHTML = '';
