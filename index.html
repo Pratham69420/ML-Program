@@ -1,546 +1,349 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Easy ML Classifier</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.14.0"></script>
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet"></script>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-<style>
-:root {
-  --bg: #070b14;
-  --card-bg: #0f172a;
-  --border: rgba(255, 255, 255, 0.1);
-  --text: #f8fafc;
-  --text-dim: #94a3b8;
-  --glow: rgba(59, 130, 246, 0.5);
-}
-body.light {
-  --bg: #f0f4f8;
-  --card-bg: #ffffff;
-  --border: rgba(0, 0, 0, 0.1);
-  --text: #0f172a;
-  --text-dim: #64748b;
-  --glow: rgba(59, 130, 246, 0.3);
-}
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Poppins', sans-serif;
-  padding: 24px;
-  max-width: 800px;
-  margin: 0 auto;
-  transition: background 0.3s, color 0.3s;
-}
-
-h2 {
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
-.subtitle {
-  color: var(--text-dim);
-  font-size: 14px;
-  margin-bottom: 20px;
-}
-
-input, button {
-  padding: 12px 16px;
-  margin-top: 8px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  font-size: 15px;
-  box-sizing: border-box;
-  font-family: 'Poppins', sans-serif;
-  transition: all 0.2s ease;
-}
-input, button { width: 100%; }
-
-input {
-  background: var(--card-bg);
-  color: var(--text);
-}
-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 15px var(--glow);
-}
-
-button {
-  cursor: pointer;
-  font-weight: 600;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
-  border: none;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.5);
-}
-button:active {
-  transform: translateY(0);
-}
-
-.card {
-  background: var(--card-bg);
-  border: 1px solid var(--border);
-  padding: 18px;
-  border-radius: 18px;
-  margin-bottom: 20px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-  position: relative;
-  z-index: 1;
-}
-.card:hover {
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.row {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-}
-.row > * { flex: 1; }
-
-.classname-input {
-  font-weight: 600;
-  border-radius: 10px;
-  padding: 10px;
-  border: 1px solid var(--border);
-}
-
-.small {
-  font-size: 13px;
-  color: var(--text-dim);
-  margin-top: 4px;
-}
-
-.progressbg {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid var(--border);
-  height: 16px;
-  border-radius: 10px;
-  overflow: hidden;
-  margin-top: 12px;
-}
-.progress {
-  height: 100%;
-  width: 0;
-  background: linear-gradient(90deg, #22c55e, #10b981);
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
-}
-
-/* Dropdown Stacking Fix */
-.dropdown {
-  position: relative;
-  width: 100%;
-  margin-top: 8px;
-  z-index: 50;
-}
-.dropbtn {
-  cursor: pointer;
-  background: rgba(255,255,255,0.05);
-  color: var(--text);
-  border: 1px solid var(--border);
-}
-.dropdown-content {
-  display: none;
-  position: absolute;
-  top: 105%;
-  left: 0;
-  width: 100%;
-  border-radius: 12px;
-  overflow: hidden;
-  background: #020617;
-  border: 1px solid var(--border);
-  z-index: 100;
-  box-shadow: 0 15px 35px rgba(0,0,0,0.8);
-}
-.dropdown-content div {
-  padding: 12px;
-  cursor: pointer;
-  transition: background 0.2s;
-  color: white;
-}
-.dropdown.show .dropdown-content { display: block; }
-.dropdown-content div:hover {
-  background: rgba(59, 130, 246, 0.4);
-}
-
-/* Switch */
-.switch-container {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.switch-label {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-}
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 46px;
-  height: 24px;
-}
-.switch input { display: none; }
-.slider {
-  position: absolute;
-  cursor: pointer;
-  inset: 0;
-  background: #334155;
-  border-radius: 24px;
-  transition: 0.3s;
-}
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 18px;
-  width: 18px;
-  left: 3px;
-  bottom: 3px;
-  background: white;
-  border-radius: 50%;
-  transition: 0.3s;
-}
-input:checked + .slider { background: #3b82f6; }
-input:checked + .slider:before { transform: translateX(22px); }
-
-/* Upload label */
-label.upload-label {
-  display: block;
-  border-radius: 10px;
-  padding: 10px;
-  cursor: pointer;
-  text-align: center;
-  font-weight: 600;
-  border: 1px dashed var(--border);
-  background: rgba(255,255,255,0.03);
-  transition: all 0.2s;
-  margin-top: 8px;
-}
-label.upload-label:hover {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
-}
-label.upload-label input { display: none; }
-
-.section-title {
-  font-size: 18px;
-  font-weight: 600;
-  margin: 24px 0 12px 0;
-  color: var(--text);
-}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VisionAI Studio | Science Fair Classifier</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- TensorFlow.js and MobileNet -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1"></script>
+  <!-- Google API Loader for Drive Picker -->
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+  <style>
+    body { font-size: 16px; background-color: #0f172a; color: #f8fafc; }
+  </style>
 </head>
+<body class="min-h-screen p-4 sm:p-8 flex flex-col items-center">
 
-<body>
+  <!-- Header -->
+  <header class="w-full max-w-4xl mb-8 text-center">
+    <div class="inline-block bg-indigo-600/30 text-indigo-400 px-4 py-1.5 rounded-full text-sm font-medium mb-3 border border-indigo-500/30">
+      Prathamveer Singh 7A • Science Fair Project
+    </div>
+    <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white mb-2">VisionAI Studio</h1>
+    <p class="text-slate-400 text-sm sm:text-base">Train and test in-browser AI image models for your medical imaging comparison.</p>
+  </header>
 
-<div class="switch-container">
-  <label class="switch-label">
-    ☀️ Light Mode
-    <label class="switch"><input type="checkbox" id="darkModeSwitch"><span class="slider"></span></label>
-  </label>
-</div>
+  <!-- Main Container -->
+  <main class="w-full max-w-4xl space-y-6">
 
-<h2>🔬 Easy ML Classifier</h2>
-<div class="subtitle">Prathamveer Singh 7A • High-Accuracy In-Browser AI</div>
+    <!-- Classes Section -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      <h2 class="text-xl font-bold text-white mb-4 flex items-center justify-between">
+        <span>1. Train Classes</span>
+        <span id="model-status" class="text-xs px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">Loading AI...</span>
+      </h2>
 
-<div class="card">
-  <input id="classInput" placeholder="Enter class name (e.g. Benign, Malignant)...">
-  <button id="addBtn">➕ Add New Class</button>
-</div>
+      <div id="classes-container" class="space-y-4">
+        <!-- Class 1 Card -->
+        <div class="class-card bg-slate-800/60 border border-slate-700/60 rounded-xl p-4" data-id="0">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <input type="text" value="Benign (Normal)" class="class-name-input bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold text-base focus:outline-none focus:border-indigo-500 w-full sm:w-64">
+            <span class="sample-counter text-sm text-indigo-300 font-medium bg-indigo-950/60 px-3 py-1 rounded-full border border-indigo-800/50 self-start sm:self-auto">0 Samples</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="triggerUpload(0)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              📁 Upload Local Images
+            </button>
+            <button onclick="openGoogleDrivePicker(0)" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              ☁️ Open Google Drive
+            </button>
+          </div>
+          <div class="thumbnails flex gap-2 overflow-x-auto py-2 mt-2 min-h-[50px]"></div>
+        </div>
 
-<div id="classList"></div>
-
-<button id="trainBtn" style="background: linear-gradient(135deg, #10b981, #059669); margin-top: 10px;">🚀 Train AI Model</button>
-<div class="progressbg"><div id="prog" class="progress"></div></div>
-<div id="trainPct" class="small" style="text-align: right; margin-top: 4px;">0%</div>
-<div id="status" class="small" style="font-weight: 600; color: #3b82f6;"></div>
-
-<div class="section-title">🧪 Test Model</div>
-<label class="upload-label" style="border: 2px dashed #3b82f6; color: #3b82f6;">
-  📁 Upload Test Image
-  <input id="testInput" type="file" accept="image/*">
-</label>
-<div id="results"></div>
-
-<script>
-let net;
-let trainingData = []; 
-let classes = [];
-
-const PRESETS = [
-  {name: "Emerald Glow", color: "#10b981"},
-  {name: "Indigo Blue", color: "#3b82f6"},
-  {name: "Amber Flame", color: "#f59e0b"},
-  {name: "Ruby Red", color: "#ef4444"},
-  {name: "Violet Dream", color: "#8b5cf6"}
-];
-
-addBtn.onclick = addClass;
-trainBtn.onclick = train;
-testInput.onchange = e => testImage(e);
-
-const darkModeSwitch = document.getElementById("darkModeSwitch");
-darkModeSwitch.onchange = () => document.body.classList.toggle("light", darkModeSwitch.checked);
-
-window.onclick = () => document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("show"));
-
-async function initModel() {
-  status.textContent = "Loading MobileNet AI Engine...";
-  net = await mobilenet.load();
-  status.textContent = "✅ AI Ready to Train High-Accuracy Vectors";
-}
-initModel();
-
-function addClass(){
-  const name = classInput.value.trim();
-  if(!name) return;
-  classes.push({name, images:[], preset:classes.length % PRESETS.length});
-  classInput.value = "";
-  render();
-}
-
-function render(){
-  classList.innerHTML = "";
-  classes.forEach((c, i)=>{
-    const preset = PRESETS[c.preset];
-    const card = document.createElement("div");
-    card.className = "card";
-    card.style.borderColor = preset.color;
-
-    const imageCount = trainingData.filter(d => d.classId === i).length;
-
-    card.innerHTML = `
-      <input class="classname-input" id="name-input-${i}" value="${c.name}">
-      <div class="small">📊 ${imageCount} high-accuracy samples trained</div>
-      <label class="upload-label" style="border-color: ${preset.color}; color: ${preset.color};">
-        📂 Upload Training Images
-        <input type="file" multiple accept="image/*" onchange="addImages(event, ${i})">
-      </label>
-      <div class="row">
-        <button style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);" onclick="clearClass(${i})">Wipe Samples</button>
-        <button style="background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3);" onclick="removeClass(${i})">Delete Class</button>
-      </div>
-      <div class="dropdown" id="dropdown-${i}">
-        <button class="dropbtn" onclick="toggleDropdown(event, ${i})" style="border-color: ${preset.color};">🎨 Theme: ${preset.name}</button>
-        <div class="dropdown-content">
-          ${PRESETS.map((p, pi)=>`<div onclick="setPreset(${i}, ${pi})" style="color: ${p.color}; font-weight:600;">${p.name}</div>`).join("")}
+        <!-- Class 2 Card -->
+        <div class="class-card bg-slate-800/60 border border-slate-700/60 rounded-xl p-4" data-id="1">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+            <input type="text" value="Malignant (Cancerous)" class="class-name-input bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold text-base focus:outline-none focus:border-indigo-500 w-full sm:w-64">
+            <span class="sample-counter text-sm text-indigo-300 font-medium bg-indigo-950/60 px-3 py-1 rounded-full border border-indigo-800/50 self-start sm:self-auto">0 Samples</span>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="triggerUpload(1)" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              📁 Upload Local Images
+            </button>
+            <button onclick="openGoogleDrivePicker(1)" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+              ☁️ Open Google Drive
+            </button>
+          </div>
+          <div class="thumbnails flex gap-2 overflow-x-auto py-2 mt-2 min-h-[50px]"></div>
         </div>
       </div>
-    `;
-    classList.appendChild(card);
 
-    const nameInput = card.querySelector(`#name-input-${i}`);
-    nameInput.oninput = e => {
-      classes[i].name = e.target.value;
-    };
-  });
-}
+      <button onclick="addClass()" class="mt-4 w-full border-2 border-dashed border-slate-700 hover:border-indigo-500 text-slate-400 hover:text-indigo-400 font-medium py-3 rounded-xl transition text-base">
+        + Add Another Class
+      </button>
+    </section>
 
-function toggleDropdown(e, i){
-  e.stopPropagation();
-  const targetDropdown = document.getElementById(`dropdown-${i}`);
-  const isOpen = targetDropdown.classList.contains("show");
-  
-  document.querySelectorAll(".dropdown").forEach(d => d.classList.remove("show"));
-  if(!isOpen) {
-    targetDropdown.classList.add("show");
-  }
-}
+    <!-- Train Model Section -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl text-center">
+      <h2 class="text-xl font-bold text-white mb-2">2. Train Model</h2>
+      <p class="text-slate-400 text-sm mb-4">Extracts feature embeddings and trains your browser classifier.</p>
+      <button onclick="trainModel()" id="train-btn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold px-8 py-3 rounded-xl transition text-base shadow-lg disabled:opacity-50" disabled>
+        Train Model
+      </button>
+    </section>
 
-function setPreset(i, p){ 
-  classes[i].preset = p; 
-  render(); 
-}
+    <!-- Preview & Test Section -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+      <h2 class="text-xl font-bold text-white mb-4">3. Preview & Test</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div class="flex flex-col items-center justify-center border-2 border-dashed border-slate-700 rounded-xl p-6 text-center bg-slate-800/40">
+          <input type="file" id="test-file-input" accept="image/*" class="hidden" onchange="handleTestImage(event)">
+          <div id="test-preview-container" class="mb-4 w-40 h-40 bg-slate-900 rounded-xl overflow-hidden flex items-center justify-center border border-slate-700">
+            <span class="text-slate-500 text-sm">No test image</span>
+          </div>
+          <button onclick="document.getElementById('test-file-input').click()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-5 py-2 rounded-xl text-sm transition shadow-md">
+            Upload Test Image
+          </button>
+        </div>
+        <div id="prediction-results" class="space-y-4">
+          <p class="text-slate-400 text-sm italic">Train the model and upload an image to see live predictions.</p>
+        </div>
+      </div>
+    </section>
 
-function clearClass(i){
-  trainingData = trainingData.filter(d => d.classId !== i);
-  classes[i].images = [];
-  render();
-}
+  </main>
 
-function removeClass(i){
-  trainingData = trainingData.filter(d => d.classId !== i);
-  classes.splice(i, 1);
-  render();
-}
+  <!-- Hidden file inputs for training -->
+  <input type="file" id="hidden-file-input" accept="image/*" multiple class="hidden" onchange="handleFileSelection(event)">
 
-async function addImages(e, i){
-  const files = e.target.files;
-  if(!files.length) return;
-  status.textContent = "Extracting deep neural embeddings...";
+  <!-- Script logic -->
+  <script>
+    let net;
+    let trainingData = []; 
+    let activeTrainingClass = 0;
+    let isTrained = false;
 
-  for(let f of files){
-    const reader = new FileReader();
-    await new Promise(resolve => {
-      reader.onload = async (evt) => {
+    // Google Picker Credentials Setup
+    const CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com'; // Replace with your Google Cloud OAuth Client ID if using Drive Picker
+    const API_KEY = 'YOUR_GOOGLE_API_KEY'; // Replace with your Google API Key
+    const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"];
+    const SCOPES = 'https://www.googleapis.com/auth/drive.readonly';
+    let tokenClient;
+    let googleDriveLoaded = false;
+
+    function gapiLoaded() {
+      gapi.load('client:picker', initializeGapiClient);
+    }
+
+    async function initializeGapiClient() {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: DISCOVERY_DOCS,
+      });
+      googleDriveLoaded = true;
+    }
+
+    function gisLoaded() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+      });
+    }
+
+    async function loadMobilenet() {
+      const status = document.getElementById('model-status');
+      try {
+        net = await mobilenet.load();
+        status.textContent = 'AI Ready';
+        status.className = 'text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+      } catch (err) {
+        status.textContent = 'AI Error';
+        status.className = 'text-xs px-3 py-1 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30';
+      }
+    }
+    loadMobilenet();
+
+    function triggerUpload(classId) {
+      activeTrainingClass = classId;
+      document.getElementById('hidden-file-input').click();
+    }
+
+    function openGoogleDrivePicker(classId) {
+      activeTrainingClass = classId;
+      if (!googleDriveLoaded) {
+        // Fallback if Google API keys aren't configured yet: opens file picker which accesses Drive app on phone
+        document.getElementById('hidden-file-input').click();
+        return;
+      }
+      tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+          throw (resp);
+        }
+        createPicker();
+      };
+      if (gapi.client.getToken() === null) {
+        tokenClient.requestAccessToken({prompt: 'consent'});
+      } else {
+        tokenClient.requestAccessToken({prompt: ''});
+      }
+    }
+
+    function createPicker() {
+      const view = new google.picker.View(google.picker.ViewId.DOCS);
+      view.setMimeTypes('image/png,image/jpeg,image/jpg');
+      const picker = new google.picker.PickerBuilder()
+          .enableFeature(google.picker.Feature.NAV_HIDDEN)
+          .setAppId(CLIENT_ID)
+          .setOAuthToken(gapi.client.getToken().access_token)
+          .addView(view)
+          .setCallback(pickerCallback)
+          .build();
+      picker.setVisible(true);
+    }
+
+    async function pickerCallback(data) {
+      if (data[google.picker.Response.ACTION] === google.picker.Action.PICKED) {
+        const doc = data[google.picker.Response.DOCUMENTS][0];
+        const fileId = doc[google.picker.Document.ID];
+        // Fetch file content from Google Drive API
+        const response = await gapi.client.drive.files.get({
+          fileId: fileId,
+          alt: 'media'
+        });
+        // Load into image processor
         const img = new Image();
-        img.src = evt.target.result;
+        img.crossOrigin = 'anonymous';
+        img.src = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media&key=${API_KEY}`;
         img.onload = async () => {
-          if(net){
-            // Normalized embedding extraction for maximum precision
-            const embedding = tf.tidy(() => {
-              const infer = net.infer(img, 'conv_preds');
-              return tf.div(infer, tf.norm(infer));
-            });
-            trainingData.push({ classId: i, embedding: embedding });
-            classes[i].images.push(img);
-            render();
-          }
-          resolve();
+          await addSampleFromImage(activeTrainingClass, img);
+        };
+      }
+    }
+
+    async function handleFileSelection(event) {
+      const files = event.target.files;
+      if (!files || files.length === 0) return;
+
+      for (let file of files) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+          const img = new Image();
+          img.src = e.target.result;
+          img.onload = async () => {
+            await addSampleFromImage(activeTrainingClass, img);
+          };
+        };
+        reader.readAsDataURL(file);
+      }
+      event.target.value = '';
+    }
+
+    async function addSampleFromImage(classId, img) {
+      const card = document.querySelectorAll('.class-card')[classId];
+      const thumbContainer = card.querySelector('.thumbnails');
+
+      const thumb = document.createElement('img');
+      thumb.src = img.src;
+      thumb.className = 'w-12 h-12 object-cover rounded-lg border border-slate-700 flex-shrink-0';
+      thumbContainer.appendChild(thumb);
+
+      if (net) {
+        const embedding = tf.tidy(() => net.infer(img, 'conv_preds'));
+        trainingData.push({ classId: classId, embedding: embedding, imgElement: img });
+        updateCounters();
+      }
+    }
+
+    function updateCounters() {
+      const cards = document.querySelectorAll('.class-card');
+      cards.forEach((card, idx) => {
+        const count = trainingData.filter(d => d.classId === idx).length;
+        card.querySelector('.sample-counter').textContent = `${count} Samples`;
+      });
+      document.getElementById('train-btn').disabled = trainingData.length === 0;
+    }
+
+    function addClass() {
+      const container = document.getElementById('classes-container');
+      const classId = container.children.length;
+      const div = document.createElement('div');
+      div.className = 'class-card bg-slate-800/60 border border-slate-700/60 rounded-xl p-4';
+      div.setAttribute('data-id', classId);
+      div.innerHTML = `
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+          <input type="text" value="Class ${classId + 1}" class="class-name-input bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-semibold text-base focus:outline-none focus:border-indigo-500 w-full sm:w-64">
+          <span class="sample-counter text-sm text-indigo-300 font-medium bg-indigo-950/60 px-3 py-1 rounded-full border border-indigo-800/50 self-start sm:self-auto">0 Samples</span>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="triggerUpload(${classId})" class="bg-indigo-600 hover:bg-indigo-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+            📁 Upload Local Images
+          </button>
+          <button onclick="openGoogleDrivePicker(${classId})" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-xl text-sm transition shadow-md flex items-center gap-2">
+            ☁️ Open Google Drive
+          </button>
+        </div>
+        <div class="thumbnails flex gap-2 overflow-x-auto py-2 mt-2 min-h-[50px]"></div>
+      `;
+      container.appendChild(div);
+    }
+
+    function trainModel() {
+      if (trainingData.length === 0) {
+        alert("Please add training samples first!");
+        return;
+      }
+      isTrained = true;
+      alert("Model trained successfully!");
+    }
+
+    async function handleTestImage(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const previewContainer = document.getElementById('test-preview-container');
+        previewContainer.innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+
+        if (!isTrained) {
+          alert("Please train the model first!");
+          return;
+        }
+
+        const img = new Image();
+        img.src = e.target.result;
+        img.onload = async () => {
+          const testEmbedding = tf.tidy(() => net.infer(img, 'conv_preds'));
+          
+          const classCards = document.querySelectorAll('.class-card');
+          let scores = {};
+          classCards.forEach((_, idx) => scores[idx] = 0);
+
+          trainingData.forEach(item => {
+            const distance = tf.norm(tf.sub(item.embedding, testEmbedding)).dataSync()[0];
+            const similarity = Math.max(0, 1 / (1 + distance));
+            scores[item.classId] += similarity;
+          });
+
+          let total = Object.values(scores).reduce((a, b) => a + b, 0);
+          const resultsDiv = document.getElementById('prediction-results');
+          resultsDiv.innerHTML = '';
+
+          classCards.forEach((card, idx) => {
+            const className = card.querySelector('.class-name-input').value;
+            const score = total > 0 ? Math.round((scores[idx] / total) * 100) : 0;
+
+            resultsDiv.innerHTML += `
+              <div>
+                <div class="flex justify-between text-sm mb-1">
+                  <span class="text-white font-medium">${className}</span>
+                  <span class="text-indigo-400 font-bold">${score}%</span>
+                </div>
+                <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-slate-700">
+                  <div class="bg-indigo-500 h-full rounded-full transition-all duration-500" style="width: ${score}%"></div>
+                </div>
+              </div>
+            `;
+          });
         };
       };
-      reader.readAsDataURL(f);
-    });
-  }
-  status.textContent = "✅ Samples added successfully with high precision";
-}
-
-async function train(){
-  if(classes.length < 2){
-    showPopup("⚠️ You need at least 2 classes to train the AI model.");
-    return;
-  }
-
-  let bad = false;
-  classes.forEach((c, i) => {
-    const count = trainingData.filter(d => d.classId === i).length;
-    if(count === 0) bad = true;
-  });
-
-  if(bad){
-    showPopup("⚠️ All classes must have at least one training image.");
-    return;
-  }
-
-  prog.style.width = "0%";
-  status.textContent = "Training feature vectors...";
-
-  for(let e = 1; e <= 100; e+=10){
-    prog.style.width = e + "%";
-    trainPct.textContent = e + "%";
-    await new Promise(r => setTimeout(r, 30));
-  }
-
-  prog.style.width = "100%";
-  trainPct.textContent = "100%";
-  status.textContent = "✅ High-Accuracy Neural Model Trained Successfully!";
-}
-
-function testImage(e){
-  if(trainingData.length === 0){
-    showPopup("⚠️ Please train the model with images first!");
-    return;
-  }
-  const file = e.target.files[0];
-  if(!file) return;
-
-  const reader = new FileReader();
-  reader.onload = (evt) => {
-    const img = new Image();
-    img.onload = async () => {
-      predict(img);
-    };
-    img.src = evt.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-async function predict(img){
-  const testEmbedding = tf.tidy(() => {
-    const infer = net.infer(img, 'conv_preds');
-    return tf.div(infer, tf.norm(infer));
-  });
-  
-  let classSimilarities = {};
-  classes.forEach((_, idx) => classSimilarities[idx] = []);
-
-  // High-accuracy K-Nearest Neighbor similarity matching against normalized embeddings
-  trainingData.forEach(item => {
-    const distance = tf.norm(tf.sub(item.embedding, testEmbedding)).dataSync()[0];
-    const similarity = Math.max(0, 1 - (distance / 2)); // High sensitivity similarity formula
-    classSimilarities[item.classId].push(similarity);
-  });
-
-  let avgScores = {};
-  let totalScore = 0;
-
-  classes.forEach((_, i) => {
-    const sims = classSimilarities[i];
-    if(sims.length > 0) {
-      sims.sort((a, b) => b - a);
-      // Average top K matches for extreme accuracy
-      const topK = sims.slice(0, Math.min(3, sims.length));
-      const avg = topK.reduce((a, b) => a + b, 0) / topK.length;
-      avgScores[i] = Math.pow(avg, 3); // Sharpens confidence curve toward 90%+ / 100%
-    } else {
-      avgScores[i] = 0;
+      reader.readAsDataURL(file);
     }
-    totalScore += avgScores[i];
-  });
-
-  results.innerHTML = "";
-  results.style.marginTop = "16px";
-  
-  classes.forEach((c, i)=>{
-    const raw = totalScore > 0 ? (avgScores[i] / totalScore) : 0;
-    const pct = (raw * 100).toFixed(1);
-    const color = PRESETS[c.preset].color;
-
-    const card = document.createElement("div");
-    card.className = "card";
-    card.style.marginBottom = "10px";
-
-    card.innerHTML = `
-      <div style="display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 8px;">
-        <span>${c.name}</span>
-        <span style="color: ${color};">${pct}%</span>
-      </div>
-      <div class="progressbg" style="height: 12px;">
-        <div class="progress" style="width: 0%; background: ${color}; box-shadow: 0 0 12px ${color};"></div>
-      </div>
-    `;
-    results.appendChild(card);
-
-    requestAnimationFrame(()=>{
-      card.querySelector(".progress").style.width = pct + "%";
-    });
-  });
-
-  testEmbedding.dispose();
-}
-
-function showPopup(msg){
-  popupText.innerHTML = msg;
-  popup.style.display = "flex";
-}
-function closePopup(){
-  popup.style.display = "none";
-}
-</script>
-
-<div id="popup" style="position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); backdrop-filter:blur(5px); z-index:9999;">
-  <div style="background:var(--bg); border:1px solid var(--border); color:var(--text); padding:24px; border-radius:20px; box-shadow:0 10px 30px rgba(0,0,0,0.5); max-width:90%; text-align:center;">
-    <div id="popupText" style="margin-bottom:16px; font-weight:500;"></div>
-    <button onclick="closePopup()">OK</button>
-  </div>
-</div>
-
+  </script>
 </body>
 </html>
